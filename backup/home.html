@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Exames Renais</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin-top: 20px;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .chart {
+            width: 60%;
+        }
+        .summary {
+            width: 35%;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .link-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        a {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 0 10px;
+        }
+        a:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Dashboard de Exames Renais</h2>
+        <div class="chart-container">
+            <div class="chart">
+                <img src="{{ url_for('static', filename='chart_placeholder.png') }}" alt="Gráfico de Evolução">
+            </div>
+            <div class="summary">
+                <h3>Creatinina</h3>
+                <p>Exame que avalia a função renal, medindo o nível de creatinina no sangue.</p>
+                <p><strong>Valores desejáveis:</strong> 0,70 a 1,30 mg/dL para homens.</p>
+            </div>
+        </div>
+        <div class="link-container">
+            <a href="#" id="upload-link">Carregar Novos Exames</a>
+            <a href="/exams">Ver Tabela de Resultados</a>
+        </div>
+        
+        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" style="display: none;">
+            <input type="file" name="file" id="file-input" accept="application/pdf" required>
+        </form>
+    </div>
+
+<script>
+    document.getElementById('upload-link').addEventListener('click', function (e) {
+        e.preventDefault();  // Impede o comportamento padrão do link
+        document.getElementById('file-input').click();  // Abre o seletor de arquivos
+    });
+    
+    document.getElementById('file-input').addEventListener('change', function () {
+        if (this.files.length > 0) {
+            document.getElementById('upload-form').submit();  // Envia o formulário
+        }
+    });
+</script>
+
+
+</body>
+</html>

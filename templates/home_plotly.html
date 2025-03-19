@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Exames Renais (Plotly)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin-top: 20px;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+        }
+        .patient-profile {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .patient-profile img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .patient-profile ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .patient-profile ul li {
+            margin-bottom: 6px;
+        }
+        .patient-profile .medications {
+            margin-top: 10px;
+        }
+        .button-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .button-container a {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 0 10px;
+        }
+        .button-container a:hover {
+            background-color: #45a049;
+        }
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .chart-wrapper {
+            display: flex;
+            width: 100%;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .chart {
+            flex: 2;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .summary {
+            flex: 1;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+    <!-- Inclua o Plotly -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>Dashboard de Exames Renais (Plotly)</h2>
+
+        <!-- Perfil do Paciente -->
+        <div class="patient-profile">
+            <!-- Coluna 1: Dados do usuário -->
+            <div>
+                <ul>
+                    <img src="{{ url_for('static', filename='thumb.jpg') }}" alt="Avatar do Paciente">
+                </ul>
+            </div>
+            <div>
+                <ul>
+                    <li><strong>Nome:</strong> Jocimar Alves T. de Farias</li>
+                    <li><strong>Data de Nascimento:</strong> 18/12/1975</li>
+                    <li><strong>Idade:</strong> 48 anos</li>
+                    <li><strong>Altura:</strong> 1,70 m</li>
+                    <li><strong>Peso:</strong> 75 kg</li>
+                </ul>
+            </div>
+
+            <!-- Coluna 2: Medicações em uso -->
+            <div class="medications">
+                <strong>Medicações em Uso:</strong>
+                <ul>
+                    <li>Jardiance 10mg</li>
+                    <li>Angipress 25mg</li>
+                    <li>Aradois 50mg (2 x ao dia)</li>
+                    <li>Rosuvastatina 10mg</li>
+                    <li>Omega 3</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Botões na parte superior -->
+        <div class="button-container">
+            <a href="/exams_summary">Sumário de Exames</a>
+            <a href="/exams">Editar incluir Resultados</a>
+        </div>
+
+        <!-- Gráficos e resumos -->
+<div class="chart-container">
+    {% for exame, dados in exames.items() %}
+    <div class="chart-wrapper">
+        <!-- Gráfico -->
+        <div class="chart">
+            <h3>{{ exame }}</h3>
+            <div id="{{ exame }}Chart"></div>
+        </div>
+
+        <!-- Resumo -->
+        <div class="summary">
+            <h3>Resumo - {{ exame }}</h3>
+            <p>
+                {% if exame == "Creatinina" %}
+                    A creatinina é um marcador da função renal. Valores normais:
+                    <ul>
+                        <li>Homens: 0,7 a 1,3 mg/dL</li>
+                        <li>Mulheres: 0,6 a 1,1 mg/dL</li>
+                    </ul>
+                {% elif exame == "Ureia" %}
+                    A ureia reflete a função renal e a ingestão de proteínas. Valores normais:
+                    <ul>
+                        <li>10 a 50 mg/dL</li>
+                    </ul>
+                {% elif exame == "TFG" %}
+                    A Taxa de Filtração Glomerular (TFG) mede a função renal. Valores normais:
+                    <ul>
+                        <li>Acima de 90 mL/min/1,73 m²</li>
+                    </ul>
+                {% elif exame == "Colesterol LDL" %}
+                    O colesterol LDL é o "colesterol ruim". Valores desejáveis:
+                    <ul>
+                        <li>Menos de 100 mg/dL</li>
+                    </ul>
+                {% elif exame == "Triglicerídeos" %}
+                    Os triglicerídeos são gorduras no sangue. Valores normais:
+                    <ul>
+                        <li>Menos de 150 mg/dL</li>
+                    </ul>
+                {% elif exame == "Sódio" %}
+                    O sódio é um eletrólito importante. Valores normais:
+                    <ul>
+                        <li>135 a 145 meq/L</li>
+                    </ul>
+                {% elif exame == "Potássio" %}
+                    O potássio é um eletrólito importante. Valores normais:
+                    <ul>
+                        <li>3,5 a 5,0 meq/L</li>
+                    </ul>
+                {% elif exame == "Cálcio" %}
+                    O cálcio é essencial para ossos e músculos. Valores normais:
+                    <ul>
+                        <li>8,5 a 10,2 mg/dL</li>
+                    </ul>
+                {% elif exame == "Ácido Úrico" %}
+                    O ácido úrico está relacionado à gota. Valores normais:
+                    <ul>
+                        <li>Homens: 3,4 a 7,0 mg/dL</li>
+                        <li>Mulheres: 2,4 a 6,0 mg/dL</li>
+                    </ul>
+                {% elif exame == "Microalbuminúria" %}
+                    A microalbuminúria é um marcador precoce de doença renal. Valores normais:
+                    <ul>
+                        <li>Menos de 30 mg/L</li>
+                    </ul>
+                {% else %}
+                    Informações sobre este exame não estão disponíveis.
+                {% endif %}
+            </p>
+
+            <!-- Análise Automática Gerada -->
+            <div class="analysis">
+                <h4>Análise Automática</h4>
+                <p>
+                    {% if exame in analise %}
+                        {{ analise[exame] }}
+                    {% else %}
+                        Nenhuma análise disponível para este exame.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+</div>
+
+    </div>
+
+    <script>
+        // Dados passados pelo Flask
+        const exames = {{ exames | tojson | safe }};
+
+        // Função para criar gráficos com Plotly
+        function criarGrafico(exame, labels, valores) {
+            const tipoGrafico = exame === "TFG" ? "bar" : "line";  // Escolhe o tipo de gráfico
+            const layout = {
+                title: exame,
+                xaxis: { title: "Data" },
+                yaxis: { title: "Valor" }
+            };
+
+            const data = [{
+                x: labels,
+                y: valores,
+                type: tipoGrafico,
+                mode: tipoGrafico === "line" ? "lines+markers" : "bars",
+                marker: { color: "#4CAF50" }
+            }];
+
+            Plotly.newPlot(`${exame}Chart`, data, layout);
+        }
+
+        // Renderiza um gráfico para cada exame
+        Object.entries(exames).forEach(([exame, dados]) => {
+            criarGrafico(exame, dados.labels, dados.valores);
+        });
+    </script>
+</body>
+</html>

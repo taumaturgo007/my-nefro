@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Exames</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+            margin: 0;
+        }
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 800px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        select, input {
+            width: 100%;
+            padding: 5px;
+        }
+        select:disabled {
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        input[type="text"] {
+            text-align: center;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        // Função para validar o campo de valor (permite apenas números e vírgula)
+        function validateValue(input) {
+            // Substitui qualquer caractere que não seja número ou vírgula por vazio
+            input.value = input.value.replace(/[^0-9,]/g, '');
+        }
+   
+        // Função para confirmar a exclusão de um registro
+        function confirmDelete(examId) {
+            if (confirm("Tem certeza que deseja apagar este registro?")) {
+                // Se o usuário confirmar, redireciona para a rota de exclusão
+                window.location.href = `/delete_exam/${examId}`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>Editar Exames</h2>
+        <form action="/update_exams" method="post">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome do Exame</th>
+                        <th>Valor</th>
+                        <th>Data da Coleta</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exam in exams %}
+                    <tr>
+                        <td>
+                            <!-- Combo para o nome do exame (não editável) -->
+                            <select name="nome_{{ exam[0] }}" disabled>
+                                {% for option in exam_options %}
+                                    <option value="{{ option }}" {% if exam[1] == option %}selected{% endif %}>{{ option }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <!-- Campo de valor (editável, aceita números e vírgula) -->
+                            <input type="text" name="valor_{{ exam[0] }}" value="{{ exam[2] }}" oninput="validateValue(this)" required>
+                        </td>
+                        <td>
+                            <!-- Campo de data (editável) -->
+                            <input type="text" name="data_{{ exam[0] }}" value="{{ exam[3] }}" >
+                        </td>
+                        <td>
+                            <button type="submit" name="update" value="{{ exam[0] }}">Salvar</button>
+                            <!-- Botão de Apagar -->
+                            <button type="button" class="btn-delete" onclick="confirmDelete('{{ exam[0] }}')">Apagar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
+
+        <h3>Inserir ou Corrigir Exames</h3>
+        <form action="/add_exam" method="post">
+            <div class="form-group">
+                <label for="nome">Selecione o Exame:</label>
+                <!-- Combo para o nome do exame -->
+                <select id="nome" name="nome" required>
+                    {% for option in exam_options %}
+                        <option value="{{ option }}">{{ option }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="valor">Valor:</label>
+                <!-- Campo de valor (aceita números e vírgula) -->
+                <input type="text" id="valor" name="valor" oninput="validateValue(this)" required>
+            </div>
+            <div class="form-group">
+                <label for="data">Data da Coleta:</label>
+                <!-- Campo de data -->
+                <input type="date" id="data" name="data" required>
+            </div>
+            <button type="submit">Salvar</button>
+        </form>
+    </div>
+</body>
+</html>
