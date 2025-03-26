@@ -1,5 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for
 import os
+import threading
+import time
+import requests
 import pytesseract
 from PyPDF2 import PdfReader
 import re
@@ -38,6 +41,24 @@ def format_date_for_db(date_str):
         return date_obj.strftime("%d/%m/%Y")
     except ValueError:
         return date_str  # Retorna a data original se não for possível converter
+
+def keep_alive():
+    while True:
+        try:
+            url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/keepalive"
+            requests.get(url, timeout=5)
+        except:
+            pass
+        time.sleep(300)  # Ping a cada 5 minutos
+
+@app.route('/keepalive')
+def alive():
+    return "App ativo!"
+
+# Inicia quando o app rodar no Render
+if os.environ.get('RENDER'):
+    threading.Thread(target=keep_alive).start()
+
 
 
 @app.route('/')
@@ -381,4 +402,5 @@ def update_exams_summary():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8080)
+   # app.run(debug=True)
