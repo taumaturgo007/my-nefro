@@ -9,7 +9,6 @@ from datetime import datetime
 from PyPDF2 import PdfReader
 from flask import Flask, render_template, request, redirect, url_for
 
-
 pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Configuração do aplicativo Flask
@@ -105,18 +104,18 @@ def extract_exam_data(text):
         if matches:
             valor = matches[-1]  # Pega o último valor encontrado
 
-            # Remove o símbolo ">" do valor da eRFG
-            if key == 'eRFG' and '>' in valor:
+            # Remove o símbolo ">" do valor da TFG/eRFG
+            if key == 'TFG' and '>' in valor:
                 valor = valor.replace('>', '').strip()  # Remove ">" e espaços em branco
 
             data[key] = valor
 
-    # Código de depuração: Verifica se o eRFG foi capturado corretamente
+    # Código de depuração: Verifica se o TFG foi capturado corretamente
     #print(f"Valores extraídos: {data}")
-    if 'eRFG' in data:
-        print(f"Valor do eRFG extraído: {data['eRFG']}")
+    if 'TFG' in data:
+        print(f"Valor do TFG extraído: {data['TFG']}")
     else:
-        print("eRFG não foi capturado.")
+        print("TFG não foi capturado.")
 
     return data
 
@@ -172,7 +171,7 @@ def gerar_analise():
                 continue 
         
         for nome, valores in dados_por_exame.items():
-            #nome_exibicao = 'eRFG' if nome == 'TFG' else nome  # Mapeia TFG para eRFG
+            nome_exibicao = 'eRFG' if nome == 'TFG' else nome  # Mapeia TFG para eRFG
             
             if len(valores) >= 2:
                 # Compara os valores numéricos (não os dicionários inteiros)
@@ -185,9 +184,9 @@ def gerar_analise():
                 elif valor_atual < valor_anterior:
                     tendencia = "diminuindo"
                     
-                analise[nome] = f"O último exame de {nome} está {tendencia}. Último valor: {valor_atual} em {valores[0]['data']}"
+                analise[nome] = f"O último exame de {nome_exibicao} está {tendencia}. Último valor: {valor_atual} em {valores[0]['data']}"
             else:
-                analise[nome] = f"Único valor disponível para {nome}: {valores[0]['valor']} em {valores[0]['data']}"
+                analise[nome] = f"Único valor disponível para {nome_exibicao}: {valores[0]['valor']} em {valores[0]['data']}"
     
     return analise
 
@@ -204,7 +203,7 @@ def gerar_analise_geral(analise):
     referencia = {
         'Creatinina': {'normal': (0.7, 1.3), 'unidade': 'mg/dL', 'acima_texto': 'elevada', 'abaixo_texto': 'baixa'},
         'Ureia': {'normal': (10, 50), 'unidade': 'mg/dL', 'acima_texto': 'elevada', 'abaixo_texto': 'baixa'},
-        'eRFG': {'limite': 60, 'unidade': 'mL/min/1,73 m²', 'acima_texto': 'normal', 'abaixo_texto': 'reduzida'},
+        'TFG': {'limite': 60, 'unidade': 'mL/min/1,73 m²', 'acima_texto': 'normal', 'abaixo_texto': 'reduzida'},
         'Colesterol LDL': {'normal': (0, 100), 'unidade': 'mg/dL', 'acima_texto': 'elevado', 'abaixo_texto': 'desejável'},
         'Triglicerídeos': {'normal': (0, 150), 'unidade': 'mg/dL', 'acima_texto': 'elevados', 'abaixo_texto': 'normal'},
         'Sódio': {'normal': (135, 145), 'unidade': 'meq/L', 'acima_texto': 'elevado', 'abaixo_texto': 'baixo'},
@@ -246,8 +245,8 @@ def gerar_analise_geral(analise):
                 valor_str = valor_str.replace(',', '.').rstrip('.')
                 valor = float(valor_str)
                 
-                # Tratamento especial para eRFG 
-                if exame == 'eRFG':
+                # Tratamento especial para eRFG (TFG)
+                if exame == 'TFG':
                     limite = referencia[exame]['limite']
                     unidade = referencia[exame]['unidade']
                     
@@ -280,97 +279,6 @@ def gerar_analise_geral(analise):
         "titulo": f"Análise Completa ({data_recente})",
         "itens": analise_pontos
     }
-
-# Função para gerar uma análise médica usando a API do DeepSeek
-def gerar_analise_medica(exames, medicacoes):
-    """Gera uma análise médica usando a API do DeepSeek"""
-    DEEPSEEK_API_KEY = "sk-cb43e56da8ce4498bb2908b2ce584e8a"  # Ou use variável de ambiente
-    API_URL = "https://api.deepseek.com/v1/chat/completions"
-   
-    msg_mock = """Resumo da Saúde Renal e Cardiovascular  
-
-1. Análise Geral da Função Renal
-Os exames indicam que a função renal está relativamente estável, com uma creatinina de 1.37 mg/dL e um eRFG acima de 60 mL/min/1.73m², sugerindo um comprometimento leve da função renal, compatível com a nefropatia por IgA. No entanto, a **microalbuminúria de 713 mg/g** ainda está elevada, indicando lesão renal persistente e risco de progressão da doença. A ureia de **55 mg/dL** está discretamente elevada, o que pode refletir um grau de retenção nitrogenada.  
-
-2. Avaliação dos Fatores de Risco Cardiovascular
-O perfil lipídico está bem controlado, com LDL de 75 mg/dL e triglicerídeos de 95 mg/dL, o que é positivo para a proteção cardiovascular. A **pressão arterial deve continuar sendo rigorosamente controlada**, pois a hipertensão é um fator de progressão da doença renal. O **ácido úrico de 6.9 mg/dL** está próximo do limite superior, o que pode aumentar o risco de gota e inflamação vascular, exigindo monitoramento.  
-
-3. Possíveis Interações Medicamentosas a Serem Monitoradas
-- O uso de Jardiance (empagliflozina) pode ser benéfico para a proteção renal e cardiovascular, mas requer monitoramento para possíveis episódios de desidratação, especialmente se houver redução da ingestão de líquidos.  
-- Aradois (losartana) pode ajudar na redução da proteinúria, mas deve-se monitorar o potássio, que por enquanto está normal (**4.7 mEq/L**).  
-- Rosuvastatina deve continuar para manutenção do controle lipídico, mas seu uso prolongado pode afetar a função hepática e muscular.  
-
-4. Recomendações Específicas
-- Hidratação adequada, evitando tanto desidratação quanto sobrecarga hídrica.  
-- Manutenção rigorosa do controle da pressão arterial, possivelmente ajustando medicações se necessário.  
-- Redução do consumo de sal e proteínas em excesso, para minimizar a progressão da doença renal.  
-- Monitoramento regular do ácido úrico, podendo ser necessário ajuste dietético ou medicamentoso se os níveis aumentarem.  
-
-5. Sugestões para Acompanhamento Futuro  
-- Repetir a creatinina e o eRFG a cada 3 a 6 meses para avaliar a evolução da função renal.  
-- Monitoramento trimestral da microalbuminúria, pois uma redução indicaria melhora na proteção renal.  
-- Avaliação do ácido úrico e perfil lipídico a cada 6 meses, garantindo controle metabólico adequado.  
-- Consulta regular com o nefrologista e cardiologista, ajustando condutas conforme necessário.  
-
-No geral, a função renal está estável, mas a albuminúria elevada exige atenção contínua. O controle da pressão arterial e da saúde cardiovascular deve continuar como prioridade.
-    """
-    
-    
-    # Construir o prompt com os dados dos exames e medicações
-    prompt = f"""
-Você é um médico especialista em nefrologia. Com base nos seguintes resultados de exames, forneça um resumo consolidado da saúde do paciente, indicando possíveis tendências e recomendações.
-
-Medicações em uso: {medicacoes}
-
-Resultados dos exames:
-"""
-    
-    # Adicionar os resultados dos exames ao prompt
-    for exame, dados in exames.items():
-        if dados['valores']:  # Só adiciona se houver valores
-            ultimo_valor = dados['valores'][-1]
-            ultima_data = dados['labels'][-1]
-            prompt += f"- {exame}: {ultimo_valor} (em {ultima_data})\n"
-    
-    prompt += """
-Por favor, forneça:
-1. Uma análise geral da função renal
-2. Avaliação dos fatores de risco cardiovascular
-3. Possíveis interações medicamentosas a serem monitoradas
-4. Recomendações específicas baseadas nos resultados
-5. Sugestões para acompanhamento futuro
-
-Mantenha a resposta em português, com linguagem clara e concisa, formatada em parágrafos curtos.
-"""
-    print(f"Prompt para DeepSeek: {prompt}") 
-
-    try:
-        response = requests.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7,
-                "max_tokens": 1000
-            },
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
-        else:
-            print(f"Erro API: {response.status_code} - {response.text}")
-            #return "Análise por IA temporariamente indisponível."
-            return msg_mock  # Retorna mensagem mock em caso de erro    
-                    
-    except Exception as e:
-        print(f"Erro na chamada da API: {str(e)}")
-        return "Erro ao conectar com o serviço de análise."
-
 
 #Função para manter o app ativo no Render
 def keep_alive():
@@ -448,17 +356,8 @@ def home():
 
             analise = gerar_analise()
             analise_geral = gerar_analise_geral(analise)
-            # Lista de medicamentos para incluir no prompt
-        medicacoes = "Jardiance 10mg, Angipress 25mg, Aradois 50mg (2 x ao dia), Rosuvastatina 10mg"
 
-        # Gera a análise médica com DeepSeek (cacheada para evitar chamadas repetidas)
-        analise_medica = gerar_analise_medica(exames, medicacoes)
-
-    return render_template('home_plotly.html', 
-                           exames=exames,
-                           analise=analise, 
-                           analise_geral=analise_geral,
-                           analise_medica=analise_medica)
+    return render_template('home_plotly.html', exames=exames, analise=analise, analise_geral=analise_geral)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -538,7 +437,7 @@ def exams_summary():
         cursor = conn.cursor()
         cursor.execute('''SELECT data_coleta,
                          MAX(CASE WHEN nome = 'Creatinina' THEN valor ELSE NULL END) AS Creatinina,
-                         MAX(CASE WHEN nome = 'eRFG' THEN valor ELSE NULL END) AS eRFG,
+                         MAX(CASE WHEN nome = 'TFG' THEN valor ELSE NULL END) AS TFG,
                          MAX(CASE WHEN nome = 'Ureia' THEN valor ELSE NULL END) AS Ureia,
                          MAX(CASE WHEN nome = 'Relação Proteína/Creatinina' THEN valor ELSE NULL END) AS "Relação Proteína/Creatinina",
                          MAX(CASE WHEN nome = 'Triglicerídeos' THEN valor ELSE NULL END) AS Triglicerídeos,
@@ -547,7 +446,8 @@ def exams_summary():
                          MAX(CASE WHEN nome = 'Sódio' THEN valor ELSE NULL END) AS Sódio,
                          MAX(CASE WHEN nome = 'Potássio' THEN valor ELSE NULL END) AS Potássio,
                          MAX(CASE WHEN nome = 'Cálcio' THEN valor ELSE NULL END) AS Cálcio,
-                         MAX(CASE WHEN nome = 'Microalbuminúria' THEN valor ELSE NULL END) AS Microalbuminúria
+                         MAX(CASE WHEN nome = 'Microalbuminúria' THEN valor ELSE NULL END) AS Microalbuminúria,
+                         MAX(CASE WHEN nome = 'TFG' THEN valor ELSE NULL END) AS TFG  
                   FROM exames
                   GROUP BY data_coleta
                   ORDER BY substr(data_coleta, 7, 4) || '-' || 
@@ -560,7 +460,7 @@ def exams_summary():
             exams_summary.append({
                 'data': row[0],
                 'Creatinina': row[1] or '-',
-                'eRFG': row[2] or '-',
+                'TFG': row[2] or '-',
                 'Ureia': row[3] or '-',
                 'Relação Proteína/Creatinina': row[4] or '-',
                 'Triglicerídeos': row[5] or '-',
@@ -585,7 +485,6 @@ def update_exams_summary():
             data_coleta = request.form.get(f'data_{i}')
             values = {
                 'Creatinina': request.form.get(f'creatinina_{i}'),
-                'eRFG': request.form.get(f'erfg_{i}'),
                 'Ureia': request.form.get(f'ureia_{i}'),
                 'Relação Proteína/Creatinina': request.form.get(f'relacao_{i}'),
                 'Triglicerídeos': request.form.get(f'triglicerideos_{i}'),

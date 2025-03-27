@@ -81,7 +81,7 @@
                     <tr>
                         <th>Data/Exame</th>
                         <th>Creatinina</th>
-                        <th>TFG</th>
+                        <th>eRFG</th>
                         <th>Ureia</th>
                         <th>Relação Proteína/Creatinina</th>
                         <th>Triglicerídeos</th>
@@ -98,7 +98,7 @@
                     <tr class="{% if loop.first %}highlight{% endif %}">
                         <td><input type="text" name="data_{{ loop.index }}" value="{{ exam['data'] }}" readonly></td>
                         <td><input type="text" name="creatinina_{{ loop.index }}" value="{{ exam['Creatinina'] }}"></td>
-                        <td><input type="text" name="tfg_{{ loop.index }}" value="{{ exam['TFG'] }}"></td>
+                        <td><input type="text" name="erfg_{{ loop.index }}" value="{{ exam['eRFG'] }}"></td>
                         <td><input type="text" name="ureia_{{ loop.index }}" value="{{ exam['Ureia'] }}"></td>
                         <td><input type="text" name="relacao_{{ loop.index }}" value="{{ exam['Relação Proteína/Creatinina'] }}"></td>
                         <td><input type="text" name="triglicerideos_{{ loop.index }}" value="{{ exam['Triglicerídeos'] }}"></td>

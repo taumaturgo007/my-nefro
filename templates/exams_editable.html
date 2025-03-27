@@ -23,10 +23,24 @@
             max-width: 800px;
         }
         table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
+        table-layout: fixed; /* Isso faz com que as colunas respeitem as larguras definidas */
         }
+        .exam-name {
+            display: inline-block;
+            padding: 5px;
+            font-weight: normal; /* Remove o negrito */
+            font-size: 14px; /* Tamanho igual aos outros textos da tabela */
+            color: #333;
+            width: 100%;
+            text-align: left; /* Para centralizar como os outros campos */
+        }
+
+        /* Opcional: ajuste para garantir consistência em todas as células */
+        td {
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
         th, td {
             border: 1px solid #ddd;
             padding: 8px;
@@ -39,6 +53,36 @@
         tr:nth-child(even) {
             background-color: #f2f2f2;
         }
+
+        th:nth-child(1), td:nth-child(1) { /* Nome do Exame */
+            width: 30%;
+        }
+        
+        th:nth-child(2), td:nth-child(2) { /* Valor */
+            width: 15%;
+        }
+        
+        th:nth-child(3), td:nth-child(3) { /* Data da Coleta */
+            width: 20%;
+        }
+        
+        th:nth-child(4), td:nth-child(4) { /* Ações */
+            width: 20%;
+        }
+
+        /* Ajustando os inputs para caber nas colunas */
+    input[type="text"], input[type="date"] {
+        width: calc(100% - 12px); /* Considera o padding */
+        box-sizing: border-box; /* Faz com que padding não aumente a largura */
+    }
+    
+    /* Ajustando os botões para caber na coluna */
+    td:nth-child(4) button {
+        margin: 2px;
+        padding: 6px 8px; /* Reduz um pouco o padding */
+    }
+
+
         select, input {
             width: 100%;
             padding: 5px;
@@ -103,12 +147,10 @@
                     {% for exam in exams %}
                     <tr>
                         <td>
-                            <!-- Combo para o nome do exame (não editável) -->
-                            <select name="nome_{{ exam[0] }}" disabled>
-                                {% for option in exam_options %}
-                                    <option value="{{ option }}" {% if exam[1] == option %}selected{% endif %}>{{ option }}</option>
-                                {% endfor %}
-                            </select>
+                            <!-- Texto simples não editável -->
+                            <span class="exam-name">{{ exam[1] }}</span>
+                            <!-- Campo hidden para enviar o valor no formulário -->
+                            <input type="hidden" name="nome_{{ exam[0] }}" value="{{ exam[1] }}">
                         </td>
                         <td>
                             <!-- Campo de valor (editável, aceita números e vírgula) -->

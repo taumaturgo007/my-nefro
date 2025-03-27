@@ -81,7 +81,14 @@
     height: 100%;
 }
 
-
+/* Estilo para a análise por IA */
+.ia-analysis {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    height: 100%;
+}
 
 .ia-content {
     padding: 12px 15px;
@@ -115,6 +122,12 @@
 }
 
 /* Estilos para os containers de análise */
+.analysis-box {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    height: 100%;
+}
 
 .analysis-box h4 {
     font-weight: 600;
@@ -136,60 +149,6 @@
     }
 }
 /* ===== [FIM DOS NOVOS ESTILOS] ===== */
-
-.analysis-container {
-    display: flex;
-    gap: 15px;
-    margin: 20px 0;
-    align-items: stretch; /* Garante mesma altura */
-}
-
-.analysis-box {
-    background: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column;
-    height: 100%; /* Ocupa 100% da altura do container */
-}
-
-.analysis-header {
-    padding: 12px 15px;
-    color: white;
-    border-radius: 8px 8px 0 0;
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0; /* Remove margens padrão */
-}
-
-.analysis-body {
-    padding: 15px;
-    flex-grow: 1; /* Preenche o espaço restante */
-    display: flex;
-    flex-direction: column;
-}
-
-/* Específico para cada tipo de análise */
-.complete-analysis .analysis-header {
-    background: #4CAF50;
-}
-
-.ia-analysis .analysis-header {
-    background: #2c3e50;
-}
-
-.complete-analysis .analysis-body {
-    font-size: 13px;
-    line-height: 1.4;
-}
-
-.ia-analysis .analysis-body {
-    font-size: 13px;
-    line-height: 1.5;
-    overflow-y: auto;
-    max-height: 400px;
-}
-
 
 @media (max-width: 768px) {
     .analysis-container {
@@ -384,21 +343,18 @@
                 </ul>
             </div>
         </div>
-         <!-- Botões - Mantenha exatamente assim -->
-       <div class="button-container">
-        <a href="/exams_summary" onclick="return verificarSenha('exams_summary', event)">Sumário de Exames</a>
-        <a href="/exams" onclick="return verificarSenha('exams', event)">Editar/Incluir Resultados</a>
-       </div>
 
-        <div class="analysis-container">
+        <div style="display: flex; gap: 15px; margin: 20px 0; align-items: flex-start;">
             <!-- Análise Completa -->
-            <div style="flex: 1; min-width: 30%;">
-                <div class="analysis-box complete-analysis">
-                    <h4 class="analysis-header">{{ analise_geral.titulo }}</h4>
-                    <div class="analysis-body">
-                        <ul style="margin: 0; padding-left: 20px;">
+            <div style="flex: 1; min-width: 35%;">
+                <div style="background: #f8f9fa; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); height: 100%;">
+                    <h4 style="margin:0; padding:12px 15px; background:#4CAF50; color:white; border-radius:8px 8px 0 0; font-size:15px;">
+                        {{ analise_geral.titulo }}
+                    </h4>
+                    <div style="padding:12px 15px; font-size:13px; line-height:1.4;">
+                        <ul style="margin:0; padding-left:18px;">
                             {% for item in analise_geral.itens %}
-                            <li style="margin-bottom: 8px;">{{ item }}</li>
+                            <li style="margin-bottom:6px;">{{ item }}</li>
                             {% endfor %}
                         </ul>
                     </div>
@@ -406,17 +362,23 @@
             </div>
         
             <!-- Análise por IA -->
-            <div style="flex: 2; min-width: 70%;">
-                <div class="analysis-box ia-analysis">
-                    <h4 class="analysis-header">Análise por IA</h4>
-                    <div class="analysis-body">
-                        {{ analise_medica | replace('\n', '<br>') | safe }}
+            <div style="flex: 2; min-width: 65%;">
+                <div style="background: #f8f9fa; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); height:100%;">
+                    <h4 style="margin:0; padding:12px 15px; background:#2c3e50; color:white; border-radius:8px 8px 0 0; font-size:15px;">
+                        Análise por IA
+                    </h4>
+                    <div style="padding:12px 15px; font-size:13px; line-height:1.5; max-height:400px; overflow-y:auto;">
+                        <div style="white-space: pre-wrap;">{{ analise_medica }}</div>
                     </div>
                 </div>
             </div>
         </div>
        
-      
+       <!-- Botões - Mantenha exatamente assim -->
+       <div class="button-container">
+        <a href="/exams_summary" onclick="return verificarSenha('exams_summary', event)">Sumário de Exames</a>
+        <a href="/exams" onclick="return verificarSenha('exams', event)">Editar/Incluir Resultados</a>
+    </div>
     
     <div id="senhaModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; justify-content:center; align-items:center;">
         <div style="background:#fff; width:90%; max-width:300px; padding:20px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.2);">
