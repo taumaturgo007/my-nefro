@@ -57,17 +57,91 @@
             text-align: center;
             margin-bottom: 20px;
         }
-        .button-container a {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            margin: 0 10px;
-        }
-        .button-container a:hover {
-            background-color: #45a049;
-        }
+       /* Estilo para os botões */
+.button-container a {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 20px;
+    text-decoration: none;
+    border-radius: 5px;
+    margin: 0 10px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.button-container a:hover {
+    background-color: #45a049;
+}
+
+/* Estilo para o modal */
+/* Estilo para o modal de senha */
+#senhaModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    display: none; /* Inicialmente escondido */
+}
+
+#senhaModal > div {
+    background: #fff;
+    width: 90%;
+    max-width: 300px;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#senhaInput {
+    width: calc(100% - 20px) !important;
+    padding: 10px !important;
+    margin: 10px 0 !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+    box-sizing: border-box !important;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.modal-buttons button {
+    padding: 10px 20px !important;
+    border: none !important;
+    border-radius: 4px !important;
+    flex: 1;
+}
+
+.modal-buttons button:first-child {
+    margin-right: 10px;
+    background: #4CAF50 !important;
+    color: white !important;
+}
+
+.modal-buttons button:last-child {
+    background: #f44336 !important;
+    color: white !important;
+}
+/* Responsividade */
+@media (max-width: 600px) {
+    .button-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .button-container a {
+        width: 100%;
+        text-align: center;
+        margin: 5px 0;
+    }
+}
         .chart-container {
             display: flex;
             flex-wrap: wrap;
@@ -189,13 +263,93 @@
             </ul>
         </div>
 
-        <!-- Botões na parte superior -->
-        <div class="button-container">
-            <a href="/exams_summary">Sumário de Exames</a>
-            <a href="/exams">Editar incluir Resultados</a>
+       
+       <!-- Botões - Mantenha exatamente assim -->
+       <div class="button-container">
+        <a href="/exams_summary" onclick="return verificarSenha('exams_summary', event)">Sumário de Exames</a>
+        <a href="/exams" onclick="return verificarSenha('exams', event)">Editar/Incluir Resultados</a>
+    </div>
+    
+    <div id="senhaModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; justify-content:center; align-items:center;">
+        <div style="background:#fff; width:90%; max-width:300px; padding:20px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+            <h3 style="margin-top:0;">Digite a Senha</h3>
+            <input type="password" id="senhaInput" style="width:100%; padding:10px; margin:15px 0; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
+            <div style="display:flex; gap:10px;">
+                <button onclick="validarSenha()" style="background:#4CAF50; color:white; padding:10px; border:none; border-radius:4px; flex:1;">Acessar</button>
+                <button onclick="fecharModal()" style="background:#f44336; color:white; padding:10px; border:none; border-radius:4px; flex:1;">Cancelar</button>
+            </div>
         </div>
-
-        <!-- Gráficos e resumos -->
+    </div>
+    <script>
+        let destino = '';
+        const SENHA_CORRETA = "1234"; // Defina sua senha aqui
+        
+        // Função para verificar se estamos na página home
+        function isHomePage() {
+            return window.location.pathname === '/home' || 
+                   window.location.pathname === '/';
+        }
+    
+        // Função principal de verificação
+        function verificarSenha(dest, event) {
+            event.preventDefault();
+            destino = dest;
+            document.getElementById('senhaModal').style.display = 'flex';
+            document.getElementById('senhaInput').focus();
+            return false;
+        }
+    
+        function validarSenha() {
+            const senha = document.getElementById('senhaInput').value;
+            if(senha === SENHA_CORRETA) {
+                // Armazena no sessionStorage que a senha foi validada
+                sessionStorage.setItem('senhaValidada', 'true');
+                window.location.href = '/' + destino;
+            } else {
+                alert("Senha incorreta!");
+                document.getElementById('senhaInput').value = '';
+                document.getElementById('senhaInput').focus();
+            }
+        }
+    
+        function fecharModal() {
+            document.getElementById('senhaModal').style.display = 'none';
+            document.getElementById('senhaInput').value = '';
+        }
+    
+        // Fechar modal ao clicar fora ou pressionar ESC
+        document.addEventListener('click', function(e) {
+            if(e.target.id === 'senhaModal') fecharModal();
+        });
+    
+        document.addEventListener('keydown', function(e) {
+            if(e.key === 'Escape') fecharModal();
+        });
+    
+        // Controle do modal ao carregar a página
+        window.addEventListener('load', function() {
+            // Sempre fecha o modal ao carregar
+            fecharModal();
+            
+            // Se voltou de uma página protegida e a senha foi validada
+            if (sessionStorage.getItem('senhaValidada') === 'true') {
+                sessionStorage.removeItem('senhaValidada');
+            }
+        });
+    
+        // Controle específico para o evento de voltar (pageshow)
+        window.addEventListener('pageshow', function(event) {
+            // Fecha o modal se estiver aberto
+            fecharModal();
+            
+            // Verifica se é uma navegação do cache (como ao voltar)
+            if (event.persisted) {
+                fecharModal();
+            }
+        });
+    </script>
+    
+    <!-- Gráficos e resumos -->
 <div class="chart-container">
     {% for exame, dados in exames.items() %}
     <div class="chart-wrapper">
