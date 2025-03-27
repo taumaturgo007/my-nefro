@@ -8,7 +8,14 @@ import sqlite3
 from datetime import datetime
 from PyPDF2 import PdfReader
 from flask import Flask, render_template, request, redirect, url_for
+from dotenv import load_dotenv
 
+# Carrega variáveis do .env
+load_dotenv()
+
+# Acesse as variáveis
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
@@ -284,7 +291,7 @@ def gerar_analise_geral(analise):
 # Função para gerar uma análise médica usando a API do DeepSeek
 def gerar_analise_medica(exames, medicacoes):
     """Gera uma análise médica usando a API do DeepSeek"""
-    DEEPSEEK_API_KEY = "sk-cb43e56da8ce4498bb2908b2ce584e8a"  # Ou use variável de ambiente
+    
     API_URL = "https://api.deepseek.com/v1/chat/completions"
    
     msg_mock = """Resumo da Saúde Renal e Cardiovascular  
