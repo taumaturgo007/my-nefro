@@ -9,6 +9,7 @@ import re
 import sqlite3
 from datetime import datetime
 
+
 pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 app = Flask(__name__)
@@ -17,6 +18,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+
 
 # Criação do banco de dados
 DATABASE = 'exames.db'
@@ -114,12 +116,13 @@ def home():
             }
 
             analise = gerar_analise()
+            analise_geral = gerar_analise_geral(analise)
 
     # Depuração: Verifique os dados no terminal
-   # print("Exames:", exames)
-    print("Análise:", analise)
+    # print("Exames:", exames)
+    #print("Análise:", analise)
 
-    return render_template('home_plotly.html', exames=exames, analise=analise)
+    return render_template('home_plotly.html', exames=exames, analise=analise, analise_geral=analise_geral)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -253,23 +256,123 @@ def gerar_analise():
             if nome not in dados_por_exame:
                 dados_por_exame[nome] = []
             try:
-                dados_por_exame[nome].append(float(valor.replace(",", ".")))
+                # Armazena valor convertido e data
+                dados_por_exame[nome].append({
+                    'valor': float(valor.replace(",", ".")),
+                    'data': data
+                })
             except ValueError:
                 continue 
         
         for nome, valores in dados_por_exame.items():
+            nome_exibicao = 'eRFG' if nome == 'TFG' else nome  # Mapeia TFG para eRFG
+            
             if len(valores) >= 2:
+                # Compara os valores numéricos (não os dicionários inteiros)
+                valor_atual = valores[0]['valor']
+                valor_anterior = valores[1]['valor']
+                
                 tendencia = "estável"
-                if valores[0] > valores[1]:
+                if valor_atual > valor_anterior:
                     tendencia = "aumentando"
-                elif valores[0] < valores[1]:
+                elif valor_atual < valor_anterior:
                     tendencia = "diminuindo"
-                analise[nome] = f"O último exame de {nome} está {tendencia}. Último valor: {valores[0]}."
+                    
+                analise[nome] = f"O último exame de {nome_exibicao} está {tendencia}. Último valor: {valor_atual} em {valores[0]['data']}"
             else:
-                analise[nome] = f"Apenas um valor disponível para {nome}. Último valor: {valores[0]}."
+                analise[nome] = f"Único valor disponível para {nome_exibicao}: {valores[0]['valor']} em {valores[0]['data']}"
     
     return analise
 
+# Gera uma análise geral consolidada usando OpenAI
+
+def gerar_analise_geral(analise):
+    """
+    Gera análise geral com tratamento especial para eRFG
+    """
+    if not analise:
+        return {"titulo": "Análise Completa (Data desconhecida)", "itens": ["Nenhum dado disponível para análise"]}
+
+    # Dicionário de referências atualizado
+    referencia = {
+        'Creatinina': {'normal': (0.7, 1.3), 'unidade': 'mg/dL', 'acima_texto': 'elevada', 'abaixo_texto': 'baixa'},
+        'Ureia': {'normal': (10, 50), 'unidade': 'mg/dL', 'acima_texto': 'elevada', 'abaixo_texto': 'baixa'},
+        'TFG': {'limite': 60, 'unidade': 'mL/min/1,73 m²', 'acima_texto': 'normal', 'abaixo_texto': 'reduzida'},
+        'Colesterol LDL': {'normal': (0, 100), 'unidade': 'mg/dL', 'acima_texto': 'elevado', 'abaixo_texto': 'desejável'},
+        'Triglicerídeos': {'normal': (0, 150), 'unidade': 'mg/dL', 'acima_texto': 'elevados', 'abaixo_texto': 'normal'},
+        'Sódio': {'normal': (135, 145), 'unidade': 'meq/L', 'acima_texto': 'elevado', 'abaixo_texto': 'baixo'},
+        'Potássio': {'normal': (3.5, 5.0), 'unidade': 'meq/L', 'acima_texto': 'elevado', 'abaixo_texto': 'baixo'},
+        'Ácido Úrico': {'normal': (3.4, 7.0), 'unidade': 'mg/dL', 'acima_texto': 'elevado', 'abaixo_texto': 'normal'},
+        'Microalbuminúria': {'normal': (0, 30), 'unidade': 'mcg/mg', 'acima_texto': 'elevada', 'abaixo_texto': 'normal'}
+    }
+
+    # Extrai todas as datas disponíveis
+    datas = []
+    for descricao in analise.values():
+        if ' em ' in descricao:
+            try:
+                data_str = descricao.split(' em ')[-1].strip()
+                # Converte a string de data para objeto datetime
+                dia, mes, ano = map(int, data_str.split('/'))
+                data_obj = datetime(ano, mes, dia)
+                datas.append((data_obj, data_str))
+            except Exception as e:
+                print(f"Erro ao processar data: {e}")
+                continue
+
+    # Pega a data mais recente
+    data_recente = "Data desconhecida"
+    if datas:
+        try:
+            data_recente = max(datas, key=lambda x: x[0])[1]
+        except:
+            data_recente = datas[0][1] if datas else "Data desconhecida"
+
+    # Processa cada exame
+    analise_pontos = []
+    
+    for exame in referencia.keys():
+        if exame in analise:
+            try:
+                # Extrai o valor numérico
+                valor_str = analise[exame].split("Último valor: ")[1].split()[0]
+                valor_str = valor_str.replace(',', '.').rstrip('.')
+                valor = float(valor_str)
+                
+                # Tratamento especial para eRFG (TFG)
+                if exame == 'TFG':
+                    limite = referencia[exame]['limite']
+                    unidade = referencia[exame]['unidade']
+                    
+                    if valor >= limite:
+                        status = f"eRFG > {limite} {unidade} ({referencia[exame]['acima_texto']})"
+                    else:
+                        status = f"eRFG {valor:.2f} {unidade} ({referencia[exame]['abaixo_texto']})"
+                else:
+                    # Análise padrão para outros exames
+                    min_ref, max_ref = referencia[exame]['normal']
+                    unidade = referencia[exame]['unidade']
+                    
+                    if valor < min_ref:
+                        status = f"{exame} {valor:.2f} {unidade} ({referencia[exame]['abaixo_texto']})"
+                    elif valor > max_ref:
+                        status = f"{exame} {valor:.2f} {unidade} ({referencia[exame]['acima_texto']})"
+                    else:
+                        status = f"{exame} {valor:.2f} {unidade} (normal)"
+                
+                analise_pontos.append(status)
+                
+            except Exception as e:
+                print(f"Erro ao processar {exame}: {str(e)}")
+                continue
+
+    # Ordena os resultados alfabeticamente
+    analise_pontos.sort()
+    
+    return {
+        "titulo": f"Análise Completa ({data_recente})",
+        "itens": analise_pontos
+    }
 
 @app.route('/exams')
 def view_exams():
