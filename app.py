@@ -40,7 +40,7 @@ DATABASE = 'exames.db'
 def init_db():
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
-        # Tabela existente de exames
+        # Tabelas existentes
         cursor.execute('''CREATE TABLE IF NOT EXISTS exames (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             nome TEXT,
@@ -48,15 +48,33 @@ def init_db():
                             data_coleta TEXT,
                             UNIQUE(nome, data_coleta)
                           )''')
-        
-        # --- NOVA TABELA PARA A ANÁLISE DA IA ---
         cursor.execute('''CREATE TABLE IF NOT EXISTS analises_ia (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             conteudo TEXT,
                             data_geracao DATETIME DEFAULT CURRENT_TIMESTAMP
                           )''')
-        # ----------------------------------------
+        
+        # --- NOVA TABELA DE MEDICAÇÕES ---
+        cursor.execute('''CREATE TABLE IF NOT EXISTS medicacoes (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            nome TEXT,
+                            detalhes TEXT
+                          )''')
         conn.commit()
+
+# Função auxiliar para formatar medicações para a IA
+def get_medicacoes_texto():
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT nome, detalhes FROM medicacoes")
+        meds = cursor.fetchall()
+        
+    if not meds:
+        return "Nenhuma medicação informada."
+    
+    # Transforma em texto: "Remédio X (10mg), Remédio Y (2x ao dia)"
+    lista_texto = [f"{m[0]} ({m[1]})" for m in meds]
+    return ", ".join(lista_texto)
 
 # Função para converter a data de AAAA-MM-DD para DD/MM/AAAA
 def format_date_for_db(date_str):
@@ -400,67 +418,58 @@ def home():
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
         
-        # Busca os dados para cada exame
+        # --- 1. Busca os dados dos EXAMES (Mantido igual) ---
         exames = {}
-        for exame in patterns.keys():  # Usa os padrões definidos em patterns
+        for exame in patterns.keys():
             cursor.execute('SELECT data_coleta, valor FROM exames WHERE nome = ?', (exame,))
             dados = cursor.fetchall()
             
-            # Formata os dados para o gráfico
             labels = []
             valores = []
             for row in dados:
-                # Garante que a data é uma string
                 data_coleta = str(row[0]) if row[0] else None
-                # Obtém o valor como string
                 valor = row[1]
                 
-                # Verifica se o valor pode ser convertido para float
-                if valor and valor != '-':  # Ignora valores vazios ou '-'
+                if valor and valor != '-':
                     try:
-                        valor_float = float(valor.replace(',', '.'))  # Converte para float
+                        valor_float = float(valor.replace(',', '.'))
                         valores.append(valor_float)
                         labels.append(data_coleta)
                     except ValueError:
-                        # Se não for possível converter, ignora o valor
-                        print(f"Valor não numérico ignorado: {valor}")
                         pass
             
-            # Ordena as datas e valores com base nas datas
             if labels and valores:
-                # Combina labels e valores em uma lista de tuplas
                 combined = list(zip(labels, valores))
-                # Ordena as tuplas com base na data (convertida para datetime)
                 combined.sort(key=lambda x: datetime.strptime(x[0], '%d/%m/%Y'))
-                # Separa as labels e valores ordenados
                 labels, valores = zip(*combined)
             
-            # Adiciona ao dicionário de exames
             exames[exame] = {
                 'labels': labels,
                 'valores': valores
             }
 
-            analise = gerar_analise()
-            analise_geral = gerar_analise_geral(analise)
-            # Lista de medicamentos para incluir no prompt
-        medicacoes = "Jardiance 10mg, Angipress 25mg, Aradois 50mg (2 x ao dia), Rosuvastatina 10mg, Alupurinol 10mg"
+        # --- 2. Busca as MEDICAÇÕES no Banco (<<< MUDANÇA AQUI) ---
+        # Antes estava fixo em texto, agora vem da tabela nova
+        cursor.execute("SELECT id, nome, detalhes FROM medicacoes")
+        lista_medicacoes = cursor.fetchall()
 
-        # Gera a análise médica com DeepSeek (cacheada para evitar chamadas repetidas)
-        #analise_medica = gerar_analise_medica(exames, medicacoes)
+        # --- 3. Gera as ANÁLISES (Mantido igual) ---
+        analise = gerar_analise()
+        analise_geral = gerar_analise_geral(analise)
         
-        # Em vez de chamar gerar_analise_medica() e gastar API, buscamos no banco:
+        # Busca a análise da IA salva no banco
         analise_medica = recuperar_ultima_analise_ia()
         
-        # Se não tiver análise nenhuma no banco, colocamos uma mensagem padrão
         if not analise_medica:
             analise_medica = "Nenhuma análise gerada por IA ainda. Clique no botão de atualizar análise."
 
+    # --- 4. Envia tudo para o HTML (<<< MUDANÇA AQUI) ---
     return render_template('home_plotly.html', 
                            exames=exames,
                            analise=analise, 
                            analise_geral=analise_geral,
-                           analise_medica=analise_medica)
+                           analise_medica=analise_medica,
+                           medicacoes=lista_medicacoes) # Adicionei esta linha!
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -630,15 +639,32 @@ def trigger_analise_ia():
             exames_dict[exame] = {'labels': labels, 'valores': valores}
 
     # 2. Define as medicações (pode vir de um form ou hardcoded como estava)
-    medicacoes = "Jardiance 10mg, Angipress 25mg, Aradois 50mg (2 x ao dia), Rosuvastatina 10mg"
+    medicacoes_texto = get_medicacoes_texto()
+    
+   # Chama o Gemini com o texto dinâmico
+    nova_analise = gerar_analise_medica(exames_dict, medicacoes_texto)
 
-    # 3. CHAMA A API DO DEEPSEEK (Aqui é onde gasta o crédito)
-    nova_analise = gerar_analise_medica(exames_dict, medicacoes)
-
-    # 4. SALVA NO BANCO
     salvar_analise_ia_db(nova_analise)
+    return redirect(url_for('home'))
 
-    # 5. Volta para a home
+@app.route('/adicionar_medicacao', methods=['POST'])
+def adicionar_medicacao():
+    nome = request.form.get('nome')
+    detalhes = request.form.get('detalhes') # Ex: 50mg 2x ao dia
+    
+    if nome:
+        with sqlite3.connect(DATABASE) as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO medicacoes (nome, detalhes) VALUES (?, ?)', (nome, detalhes))
+            conn.commit()
+    return redirect(url_for('home'))
+
+@app.route('/deletar_medicacao/<int:id>')
+def deletar_medicacao(id):
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM medicacoes WHERE id = ?', (id,))
+        conn.commit()
     return redirect(url_for('home'))
 
 if __name__ == '__main__':
