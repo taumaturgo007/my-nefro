@@ -366,9 +366,9 @@
                 <ul>
                     <li><strong>Nome:</strong> Jocimar Alves T. de Farias</li>
                     <li><strong>Data de Nascimento:</strong> 18/12/1975</li>
-                    <li><strong>Idade:</strong> 48 anos</li>
-                    <li><strong>Altura:</strong> 1,70 m</li>
-                    <li><strong>Peso:</strong> 75 kg</li>
+                    <li><strong>Idade:</strong> 49 anos</li>
+                    <li><strong>Altura:</strong> 1,69 m</li>
+                    <li><strong>Peso:</strong> 83 kg</li>
                 </ul>
             </div>
 
@@ -406,16 +406,31 @@
             </div>
         
             <!-- Análise por IA -->
-            <div style="flex: 2; min-width: 70%;">
-                <div class="analysis-box ia-analysis">
-                    <h4 class="analysis-header">Análise por IA</h4>
-                    <div class="analysis-body">
-                        {{ analise_medica | replace('\n', '<br>') | safe }}
-                    </div>
+            <div style="background-color: #e3f2fd; padding: 20px; border-radius: 10px; margin: 20px auto; width: 80%; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <h3 style="color: #1565c0; margin-top: 0;">🤖 Análise Médica (Gemini AI)</h3>
+                
+                <div style="
+    background-color: #f8f9fa; 
+    padding: 15px;            /* Reduzi de 20px para 15px */
+    border-radius: 0 0 8px 8px; 
+    font-size: 13px;          /* AQUI: Reduzi de 15px para 13px (padrão do site) */
+    line-height: 1.5;         /* Espaçamento entre linhas mais compacto */
+    color: #444; 
+    white-space: pre-line;
+    font-family: Arial, sans-serif;">
+    {{ analise_medica }}
+</div>
+            
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('trigger_analise_ia') }}" style="text-decoration: none;">
+                        <button style="background-color: #1565c0; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s;">
+                            ✨ Gerar Nova Análise Agora
+                        </button>
+                    </a>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">Clique apenas se tiver novos exames.</p>
                 </div>
             </div>
         </div>
-       
       
     
     <div id="senhaModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; justify-content:center; align-items:center;">

@@ -1,3 +1,4 @@
+import google.generativeai as genai
 import os
 import threading
 import time
@@ -14,7 +15,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Acesse as variáveis
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+genai.configure(api_key=GEMINI_API_KEY)
+#DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -37,6 +40,7 @@ DATABASE = 'exames.db'
 def init_db():
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
+        # Tabela existente de exames
         cursor.execute('''CREATE TABLE IF NOT EXISTS exames (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             nome TEXT,
@@ -44,6 +48,14 @@ def init_db():
                             data_coleta TEXT,
                             UNIQUE(nome, data_coleta)
                           )''')
+        
+        # --- NOVA TABELA PARA A ANÁLISE DA IA ---
+        cursor.execute('''CREATE TABLE IF NOT EXISTS analises_ia (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            conteudo TEXT,
+                            data_geracao DATETIME DEFAULT CURRENT_TIMESTAMP
+                          )''')
+        # ----------------------------------------
         conn.commit()
 
 # Função para converter a data de AAAA-MM-DD para DD/MM/AAAA
@@ -150,6 +162,28 @@ def save_to_db(data):
                     print(f"Registro duplicado ignorado: {nome} - {data_coleta}")
             except sqlite3.IntegrityError as e:
                 print(f"Erro ao inserir no banco de dados: {e}")
+
+def salvar_analise_ia_db(texto_analise):
+    """Salva a resposta da IA no banco de dados"""
+    if not texto_analise: return
+    
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO analises_ia (conteudo) VALUES (?)', (texto_analise,))
+        conn.commit()
+
+def recuperar_ultima_analise_ia():
+    """Busca a última análise salva para exibir na Home"""
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        # Pega a última análise gerada (ordenada por ID decrescente)
+        cursor.execute('SELECT conteudo FROM analises_ia ORDER BY id DESC LIMIT 1')
+        resultado = cursor.fetchone()
+        
+        if resultado:
+            return resultado[0]
+        else:
+            return None # Retorna None se nunca foi gerada nenhuma análise
 
 # Função para gerar uma análise dos exames
 def gerar_analise():
@@ -292,92 +326,46 @@ def gerar_analise_geral(analise):
 def gerar_analise_medica(exames, medicacoes):
     """Gera uma análise médica usando a API do DeepSeek"""
     
-    API_URL = "https://api.deepseek.com/v1/chat/completions"
-   
-    msg_mock = """Resumo da Saúde Renal e Cardiovascular  
-
-1. Análise Geral da Função Renal
-Os exames indicam que a função renal está relativamente estável, com uma creatinina de 1.37 mg/dL e um eRFG acima de 60 mL/min/1.73m², sugerindo um comprometimento leve da função renal, compatível com a nefropatia por IgA. No entanto, a **microalbuminúria de 713 mg/g** ainda está elevada, indicando lesão renal persistente e risco de progressão da doença. A ureia de **55 mg/dL** está discretamente elevada, o que pode refletir um grau de retenção nitrogenada.  
-
-2. Avaliação dos Fatores de Risco Cardiovascular
-O perfil lipídico está bem controlado, com LDL de 75 mg/dL e triglicerídeos de 95 mg/dL, o que é positivo para a proteção cardiovascular. A **pressão arterial deve continuar sendo rigorosamente controlada**, pois a hipertensão é um fator de progressão da doença renal. O **ácido úrico de 6.9 mg/dL** está próximo do limite superior, o que pode aumentar o risco de gota e inflamação vascular, exigindo monitoramento.  
-
-3. Possíveis Interações Medicamentosas a Serem Monitoradas
-- O uso de Jardiance (empagliflozina) pode ser benéfico para a proteção renal e cardiovascular, mas requer monitoramento para possíveis episódios de desidratação, especialmente se houver redução da ingestão de líquidos.  
-- Aradois (losartana) pode ajudar na redução da proteinúria, mas deve-se monitorar o potássio, que por enquanto está normal (**4.7 mEq/L**).  
-- Rosuvastatina deve continuar para manutenção do controle lipídico, mas seu uso prolongado pode afetar a função hepática e muscular.  
-
-4. Recomendações Específicas
-- Hidratação adequada, evitando tanto desidratação quanto sobrecarga hídrica.  
-- Manutenção rigorosa do controle da pressão arterial, possivelmente ajustando medicações se necessário.  
-- Redução do consumo de sal e proteínas em excesso, para minimizar a progressão da doença renal.  
-- Monitoramento regular do ácido úrico, podendo ser necessário ajuste dietético ou medicamentoso se os níveis aumentarem.  
-
-5. Sugestões para Acompanhamento Futuro  
-- Repetir a creatinina e o eRFG a cada 3 a 6 meses para avaliar a evolução da função renal.  
-- Monitoramento trimestral da microalbuminúria, pois uma redução indicaria melhora na proteção renal.  
-- Avaliação do ácido úrico e perfil lipídico a cada 6 meses, garantindo controle metabólico adequado.  
-- Consulta regular com o nefrologista e cardiologista, ajustando condutas conforme necessário.  
-
-No geral, a função renal está estável, mas a albuminúria elevada exige atenção contínua. O controle da pressão arterial e da saúde cardiovascular deve continuar como prioridade.
+    """Gera uma análise médica usando o Gemini 1.5 Flash (Gratuito)"""
+    
+    # Modelo rápido e eficiente (ótimo para textos)
+    model = genai.GenerativeModel('models/gemini-flash-latest')
+    
+    # Construir o prompt (reaproveitando sua lógica)
+    prompt = f"""
+    Você é um médico especialista em nefrologia. Com base nos seguintes resultados de exames, forneça um resumo consolidado da saúde do paciente.
+    
+    Medicações em uso: {medicacoes}
+    
+    Resultados dos exames:
     """
     
-    
-    # Construir o prompt com os dados dos exames e medicações
-    prompt = f"""
-Você é um médico especialista em nefrologia. Com base nos seguintes resultados de exames, forneça um resumo consolidado da saúde do paciente, indicando possíveis tendências e recomendações.
-
-Medicações em uso: {medicacoes}
-
-Resultados dos exames:
-"""
-    
-    # Adicionar os resultados dos exames ao prompt
     for exame, dados in exames.items():
-        if dados['valores']:  # Só adiciona se houver valores
+        if dados['valores']:
             ultimo_valor = dados['valores'][-1]
             ultima_data = dados['labels'][-1]
             prompt += f"- {exame}: {ultimo_valor} (em {ultima_data})\n"
     
     prompt += """
-Por favor, forneça:
-1. Uma análise geral da função renal
-2. Avaliação dos fatores de risco cardiovascular
-3. Possíveis interações medicamentosas a serem monitoradas
-4. Recomendações específicas baseadas nos resultados
-5. Sugestões para acompanhamento futuro
-
-Mantenha a resposta em português, com linguagem clara e concisa, formatada em parágrafos curtos.
-"""
-    print(f"Prompt para DeepSeek: {prompt}") 
-
+    Por favor, forneça:
+    1. Uma análise geral da função renal
+    2. Avaliação dos fatores de risco cardiovascular
+    3. Possíveis interações medicamentosas a serem monitoradas
+    4. Recomendações específicas baseadas nos resultados
+    5. Sugestões para acompanhamento futuro
+    
+    Mantenha a resposta em português, com linguagem clara e concisa, formatada em parágrafos curtos.
+    """
+    
     try:
-        response = requests.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7,
-                "max_tokens": 1000
-            },
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
-        else:
-            print(f"Erro API: {response.status_code} - {response.text}")
-            #return "Análise por IA temporariamente indisponível."
-            return msg_mock  # Retorna mensagem mock em caso de erro    
-                    
+        # Chamada ao Gemini
+        response = model.generate_content(prompt)
+        return response.text
+            
     except Exception as e:
-        print(f"Erro na chamada da API: {str(e)}")
-        return "Erro ao conectar com o serviço de análise."
-
+        print(f"Erro na chamada do Gemini: {str(e)}")
+        return "Erro ao conectar com o serviço de análise do Gemini."
+    
 
 #Função para manter o app ativo no Render
 def keep_alive():
@@ -456,10 +444,17 @@ def home():
             analise = gerar_analise()
             analise_geral = gerar_analise_geral(analise)
             # Lista de medicamentos para incluir no prompt
-        medicacoes = "Jardiance 10mg, Angipress 25mg, Aradois 50mg (2 x ao dia), Rosuvastatina 10mg"
+        medicacoes = "Jardiance 10mg, Angipress 25mg, Aradois 50mg (2 x ao dia), Rosuvastatina 10mg, Alupurinol 10mg"
 
         # Gera a análise médica com DeepSeek (cacheada para evitar chamadas repetidas)
-        analise_medica = gerar_analise_medica(exames, medicacoes)
+        #analise_medica = gerar_analise_medica(exames, medicacoes)
+        
+        # Em vez de chamar gerar_analise_medica() e gastar API, buscamos no banco:
+        analise_medica = recuperar_ultima_analise_ia()
+        
+        # Se não tiver análise nenhuma no banco, colocamos uma mensagem padrão
+        if not analise_medica:
+            analise_medica = "Nenhuma análise gerada por IA ainda. Clique no botão de atualizar análise."
 
     return render_template('home_plotly.html', 
                            exames=exames,
@@ -614,6 +609,37 @@ def update_exams_summary():
                         cursor.execute('INSERT INTO exames (nome, valor, data_coleta) VALUES (?, ?, ?)', (nome, valor, data_coleta))
         conn.commit()
     return redirect(url_for('exams_summary'))
+
+@app.route('/gerar-nova-analise')
+def trigger_analise_ia():
+    # 1. Busca todos os dados necessários (lógica parecida com a da home)
+    exames_dict = {}
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        for exame in patterns.keys():
+            cursor.execute('SELECT data_coleta, valor FROM exames WHERE nome = ?', (exame,))
+            dados = cursor.fetchall()
+            # ... (Lógica simplificada para montar o dicionário exames_dict para a IA) ...
+            # Para facilitar, vou sugerir que você abstraia a lógica de pegar dados
+            # da home para uma função separada, mas para ser rápido, 
+            # você pode copiar a lógica de montagem de 'labels' e 'valores' aqui.
+            
+            # (Simplificando para o exemplo):
+            labels = [row[0] for row in dados]
+            valores = [row[1] for row in dados]
+            exames_dict[exame] = {'labels': labels, 'valores': valores}
+
+    # 2. Define as medicações (pode vir de um form ou hardcoded como estava)
+    medicacoes = "Jardiance 10mg, Angipress 25mg, Aradois 50mg (2 x ao dia), Rosuvastatina 10mg"
+
+    # 3. CHAMA A API DO DEEPSEEK (Aqui é onde gasta o crédito)
+    nova_analise = gerar_analise_medica(exames_dict, medicacoes)
+
+    # 4. SALVA NO BANCO
+    salvar_analise_ia_db(nova_analise)
+
+    # 5. Volta para a home
+    return redirect(url_for('home'))
 
 if __name__ == '__main__':
     init_db()
