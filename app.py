@@ -1,3 +1,4 @@
+from click import prompt
 import google.generativeai as genai
 import os
 import threading
@@ -17,7 +18,7 @@ load_dotenv()
 # Acesse as variáveis
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 genai.configure(api_key=GEMINI_API_KEY)
-#DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+model = genai.GenerativeModel('models/gemini-flash-latest')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 pytesseract.pytesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -60,7 +61,89 @@ def init_db():
                             nome TEXT,
                             detalhes TEXT
                           )''')
+        # --- NOVA TABELA: PERFIL (O erro acontece porque essa tabela ou dados faltam) ---
+        cursor.execute('''CREATE TABLE IF NOT EXISTS perfil (
+                            id INTEGER PRIMARY KEY CHECK (id = 1), 
+                            nome TEXT,
+                            diagnostico TEXT,
+                            peso TEXT,
+                            altura TEXT,
+                            pressao TEXT
+                          )''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS eventos (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            data_evento TEXT,
+                            descricao TEXT
+                          )''')
+        
+        # Cria um perfil padrão automaticamente se estiver vazio
+        cursor.execute("INSERT OR IGNORE INTO perfil (id, nome, diagnostico, peso, altura, pressao) VALUES (1, 'Seu Nome', 'Diagnóstico aqui', '00', '0.00', '120/80')")
         conn.commit()
+
+# 2. NOVA FUNÇÃO AUXILIAR (Para a IA ler o diário)
+def get_eventos_texto():
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        # Pega os últimos 10 eventos ordenados por data
+        cursor.execute("SELECT data_evento, descricao FROM eventos ORDER BY data_evento DESC LIMIT 30")
+        eventos = cursor.fetchall()
+        
+    if not eventos:
+        return "Nenhum evento adverso ou observação registrada no período."
+    
+    # Formata: "2025-10-31: Tive febre alta"
+    lista_texto = [f"- {evt[0]}: {evt[1]}" for evt in eventos]
+    return "\n".join(lista_texto)
+
+# Função auxiliar para formatar HTML simples
+
+def markdown_to_html(texto):
+    if not texto:
+        return ""
+    
+    import re
+    
+    # 1. TRATAR TABELAS (NOVO)
+    # Procura blocos que começam com | e têm pelo menos duas linhas
+    linhas = texto.split('\n')
+    novo_texto = []
+    em_tabela = False
+    
+    for linha in linhas:
+        if '|' in linha:
+            if not em_tabela:
+                novo_texto.append('<div class="table-responsive"><table class="table table-sm table-bordered table-striped mt-2" style="font-size: 12px; background: white;">')
+                em_tabela = True
+            
+            # Limpa as barras e transforma em colunas de tabela
+            # Ignora linhas de separação como |:---|
+            if '---' in linha:
+                continue
+                
+            colunas = [c.strip() for c in linha.split('|') if c.strip()]
+            tag = 'th' if 'Medicação' in linha or 'Exame' in linha else 'td'
+            html_linha = '<tr>' + ''.join([f'<{tag}>{c}</{tag}>' for c in colunas]) + '</tr>'
+            novo_texto.append(html_linha)
+        else:
+            if em_tabela:
+                novo_texto.append('</table></div>')
+                em_tabela = False
+            novo_texto.append(linha)
+    
+    if em_tabela: novo_texto.append('</table></div>')
+    texto = '\n'.join(novo_texto)
+
+    # 2. TRATAR TÍTULOS (####)
+    texto = re.sub(r'#+\s*(.*?)\s*#*', r'<br><b style="color: #198754; font-size: 16px; display: block; margin-top: 10px;">\1</b>', texto)
+    
+    # 3. TRATAR NEGRITO (**)
+    texto = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', texto)
+    
+    # 4. TRATAR TÓPICOS (-)
+    texto = re.sub(r'^- (.*)', r'• \1', texto, flags=re.MULTILINE)
+    
+    return texto
+
 
 # Função auxiliar para formatar medicações para a IA
 def get_medicacoes_texto():
@@ -75,6 +158,19 @@ def get_medicacoes_texto():
     # Transforma em texto: "Remédio X (10mg), Remédio Y (2x ao dia)"
     lista_texto = [f"{m[0]} ({m[1]})" for m in meds]
     return ", ".join(lista_texto)
+
+# Função auxiliar para formatar o perfil
+def get_perfil_texto():
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT nome, diagnostico, peso, altura, pressao FROM perfil WHERE id=1")
+            p = cursor.fetchone()
+            if p:
+                return f"Nome: {p[0]}, Diagnóstico: {p[1]}, Peso: {p[2]}kg, Altura: {p[3]}m, Pressão Arterial: {p[4]}"
+        except:
+            pass
+    return "Dados do perfil não informados."
 
 # Função para converter a data de AAAA-MM-DD para DD/MM/AAAA
 def format_date_for_db(date_str):
@@ -119,7 +215,8 @@ patterns = {
     'Potássio': r'pot[áa]ssio[:\s]*([\d,.]+)\s*meq/l',
     'Cálcio': r'c[aá]lcio[:\s]*([\d,.]+)\s*mg/dl',
     'Ácido Úrico': r'[áa]cido [úu]rico[:\s]*([\d,.]+)\s*mg/dl',
-    'Microalbuminúria': r'microalbumin[úu]ria[,\s]*amostra isolada[:\s-]*([\d,.]+)\s*mcg/mg' # Novo padrão
+    'Microalbuminúria': r'microalbumin[úu]ria(?:(?!(?:refer|inferior|valor|<))[\s\S])*?([\d,.]+)\s*mg/g',
+    
 }
 
 
@@ -341,49 +438,50 @@ def gerar_analise_geral(analise):
     }
 
 # Função para gerar uma análise médica usando a API do DeepSeek
-def gerar_analise_medica(exames, medicacoes):
-    """Gera uma análise médica usando a API do DeepSeek"""
+def gerar_analise_medica(exames_dict, medicacoes_texto, perfil_texto, eventos_texto): # <--- Adicionei perfil_texto aqui
     
-    """Gera uma análise médica usando o Gemini 1.5 Flash (Gratuito)"""
-    
-    # Modelo rápido e eficiente (ótimo para textos)
-    model = genai.GenerativeModel('models/gemini-flash-latest')
-    
-    # Construir o prompt (reaproveitando sua lógica)
+    # Monta o texto dos exames
+    exames_texto = ""
+    for exame, dados in exames_dict.items():
+        valores = dados['valores']
+        labels = dados['labels']
+        if valores:
+            ultimo_valor = valores[-1]
+            data_ultimo = labels[-1]
+            historico = ", ".join([f"{v} ({d})" for v, d in zip(valores[-5:], labels[-5:])])
+            exames_texto += f"- {exame}: Último {ultimo_valor} em {data_ultimo}. Histórico recente: [{historico}]\n"
+
+    # O Prompt agora inclui o PERFIL
     prompt = f"""
-    Você é um médico especialista em nefrologia. Com base nos seguintes resultados de exames, forneça um resumo consolidado da saúde do paciente.
+    Como um nefrologista especialista. Analise o caso deste paciente para fornecer uma avaliação médica:
+
+    === DADOS DO PACIENTE ===
+    {perfil_texto}
+
+    === MEDICAÇÕES EM USO ===
+    {medicacoes_texto}
+
+    === DIÁRIO CLÍNICO (Sintomas e Ocorrências) ===
+    {eventos_texto}
+
+    === RESULTADOS DE EXAMES ===
+    {exames_texto}
+
+    POR FAVOR, FORNEÇA:
+    1. Uma análise concisa do estado atual baseada nos últimos exames e no diagnóstico do paciente.
+    2. Comente se a pressão arterial e o peso estão adequados para o quadro renal.
+    3. Verifique se as medicações atuais fazem sentido para os resultados apresentados.
+    4. Cruse os dados do diário clínico com os exames e medicações.
+    5. Dê 3 recomendações práticas de curto prazo.
     
-    Medicações em uso: {medicacoes}
-    
-    Resultados dos exames:
+    Use tom profissional mas acolhedor. Responda em Português do Brasil.
     """
-    
-    for exame, dados in exames.items():
-        if dados['valores']:
-            ultimo_valor = dados['valores'][-1]
-            ultima_data = dados['labels'][-1]
-            prompt += f"- {exame}: {ultimo_valor} (em {ultima_data})\n"
-    
-    prompt += """
-    Por favor, forneça:
-    1. Uma análise geral da função renal
-    2. Avaliação dos fatores de risco cardiovascular
-    3. Possíveis interações medicamentosas a serem monitoradas
-    4. Recomendações específicas baseadas nos resultados
-    5. Sugestões para acompanhamento futuro
-    
-    Mantenha a resposta em português, com linguagem clara e concisa, formatada em parágrafos curtos.
-    """
-    
+    print(f"--- PROMPT ENVIADO ---\n{prompt}\n----------------------")
     try:
-        # Chamada ao Gemini
         response = model.generate_content(prompt)
         return response.text
-            
     except Exception as e:
-        print(f"Erro na chamada do Gemini: {str(e)}")
-        return "Erro ao conectar com o serviço de análise do Gemini."
-    
+        return f"Erro ao gerar análise: {e}"
 
 #Função para manter o app ativo no Render
 def keep_alive():
@@ -453,23 +551,49 @@ def home():
         cursor.execute("SELECT id, nome, detalhes FROM medicacoes")
         lista_medicacoes = cursor.fetchall()
 
+       # 3. Busca PERFIL (AQUI ESTAVA FALTANDO!)
+        try:
+            cursor.execute("SELECT nome, diagnostico, peso, altura, pressao FROM perfil WHERE id=1")
+            p = cursor.fetchone()
+            if p:
+                perfil_data = {
+                    'nome': p[0], 'diagnostico': p[1], 
+                    'peso': p[2], 'altura': p[3], 'pressao': p[4]
+                }
+            else:
+                # Fallback caso a tabela exista mas esteja vazia
+                perfil_data = {'nome': 'Usuário', 'diagnostico': '-', 'peso': '-', 'altura': '-', 'pressao': '-'}
+        except:
+            # Fallback caso a tabela ainda não exista (previne crash)
+            perfil_data = {'nome': 'Atualize a Página', 'diagnostico': '', 'peso': '', 'altura': '', 'pressao': ''}
+
         # --- 3. Gera as ANÁLISES (Mantido igual) ---
         analise = gerar_analise()
         analise_geral = gerar_analise_geral(analise)
         
         # Busca a análise da IA salva no banco
-        analise_medica = recuperar_ultima_analise_ia()
         
+        analise_bruta = recuperar_ultima_analise_ia()
+        # Se existir análise, formatamos. Se não, enviamos string vazia ou aviso.
+        analise_medica = markdown_to_html(analise_bruta) if analise_bruta else "Nenhuma análise gerada."
+
+
         if not analise_medica:
             analise_medica = "Nenhuma análise gerada por IA ainda. Clique no botão de atualizar análise."
 
-    # --- 4. Envia tudo para o HTML (<<< MUDANÇA AQUI) ---
+
+    # --- NOVO: BUSCA OS EVENTOS PARA EXIBIR NA TELA ---
+        cursor.execute("SELECT id, data_evento, descricao FROM eventos ORDER BY data_evento DESC")
+        lista_eventos = cursor.fetchall()
+
     return render_template('home_plotly.html', 
-                           exames=exames,
+                           exames=exames, # (supondo que a variável exames existe do código anterior)
                            analise=analise, 
                            analise_geral=analise_geral,
                            analise_medica=analise_medica,
-                           medicacoes=lista_medicacoes) # Adicionei esta linha!
+                           medicacoes=lista_medicacoes,
+                           perfil=perfil_data, # (supondo que perfil_data existe)
+                           eventos=lista_eventos) # <--- ADICIONE ISSO
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -545,106 +669,167 @@ def update_exams():
 
 @app.route('/exams_summary')
 def exams_summary():
+    # Inicializa variáveis padrão para evitar erros se o banco estiver vazio
+    summary_list = []
+    perfil_data = {'nome': 'Usuário', 'diagnostico': '', 'peso': '-', 'altura': '-', 'pressao': '-'}
+
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
-        cursor.execute('''SELECT data_coleta,
-                         MAX(CASE WHEN nome = 'Creatinina' THEN valor ELSE NULL END) AS Creatinina,
-                         MAX(CASE WHEN nome = 'eRFG' THEN valor ELSE NULL END) AS eRFG,
-                         MAX(CASE WHEN nome = 'Ureia' THEN valor ELSE NULL END) AS Ureia,
-                         MAX(CASE WHEN nome = 'Relação Proteína/Creatinina' THEN valor ELSE NULL END) AS "Relação Proteína/Creatinina",
-                         MAX(CASE WHEN nome = 'Triglicerídeos' THEN valor ELSE NULL END) AS Triglicerídeos,
-                         MAX(CASE WHEN nome = 'Colesterol LDL' THEN valor ELSE NULL END) AS LDL,
-                         MAX(CASE WHEN nome = 'Ácido Úrico' THEN valor ELSE NULL END) AS "Ácido Úrico",
-                         MAX(CASE WHEN nome = 'Sódio' THEN valor ELSE NULL END) AS Sódio,
-                         MAX(CASE WHEN nome = 'Potássio' THEN valor ELSE NULL END) AS Potássio,
-                         MAX(CASE WHEN nome = 'Cálcio' THEN valor ELSE NULL END) AS Cálcio,
-                         MAX(CASE WHEN nome = 'Microalbuminúria' THEN valor ELSE NULL END) AS Microalbuminúria
-                  FROM exames
-                  GROUP BY data_coleta
-                  ORDER BY substr(data_coleta, 7, 4) || '-' || 
-                           substr(data_coleta, 4, 2) || '-' || 
-                           substr(data_coleta, 1, 2) DESC''')
-        rows = cursor.fetchall()
         
-        exams_summary = []
-        for row in rows:
-            exams_summary.append({
-                'data': row[0],
-                'Creatinina': row[1] or '-',
-                'eRFG': row[2] or '-',
-                'Ureia': row[3] or '-',
-                'Relação Proteína/Creatinina': row[4] or '-',
-                'Triglicerídeos': row[5] or '-',
-                'LDL': row[6] or '-',
-                'Ácido Úrico': row[7] or '-',
-                'Sódio': row[8] or '-',
-                'Potássio': row[9] or '-',
-                'Cálcio': row[10] or '-',
-                'Microalbuminúria': row[11] or '-'
-            })
+        # --- 1. BUSCAR E PROCESSAR EXAMES ---
+        cursor.execute("SELECT * FROM exames")
+        data = cursor.fetchall()
+        
+        # Dicionário para agrupar exames pela data
+        # Estrutura: { '10/10/2023': { 'Creatinina': '1.2', 'Ureia': '40' }, ... }
+        exams_by_date = {}
+        
+        for row in data:
+            # row[1]=nome, row[2]=valor, row[3]=data_coleta
+            # Ajuste os índices conforme sua tabela (assumindo id, nome, valor, data)
+            nome_exame = row[1]
+            valor_exame = row[2]
+            data_coleta = row[3]
+            
+            if data_coleta: # Só processa se tiver data
+                if data_coleta not in exams_by_date:
+                    exams_by_date[data_coleta] = {}
+                exams_by_date[data_coleta][nome_exame] = valor_exame
+            
+        # Transforma o dicionário em uma lista para o HTML
+        for date, exams in exams_by_date.items():
+            entry = {'Data': date}
+            entry.update(exams) # Adiciona todos os exames dessa data no dicionário
+            summary_list.append(entry)
+            
+        # Ordena da data mais recente para a mais antiga
+        try:
+            summary_list.sort(key=lambda x: datetime.strptime(x['Data'], '%d/%m/%Y'), reverse=True)
+        except Exception as e:
+            print(f"Erro ao ordenar datas: {e}")
+            # Se der erro de data, mantém a ordem original sem quebrar o site
 
-        # Depuração: Verifique as datas ordenadas
-        print("Datas ordenadas:", [exam['data'] for exam in exams_summary])
+        # --- 2. BUSCAR DADOS DO PERFIL ---
+        try:
+            cursor.execute("SELECT nome, diagnostico, peso, altura, pressao FROM perfil WHERE id=1")
+            p = cursor.fetchone()
+            if p:
+                perfil_data = {
+                    'nome': p[0], 
+                    'diagnostico': p[1], 
+                    'peso': p[2], 
+                    'altura': p[3], 
+                    'pressao': p[4]
+                }
+        except Exception as e:
+            print(f"Erro ao buscar perfil: {e}")
 
-    return render_template('exams_summary.html', exams_summary=exams_summary)
+    # Retorna o template com TODAS as variáveis definidas
+    return render_template('exams_summary.html', 
+                           exams_summary=summary_list, 
+                           perfil=perfil_data)
 
-@app.route('/update_exams_summary', methods=['POST'])
-def update_exams_summary():
+@app.route('/update_summary', methods=['POST'])
+def update_summary():
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
-        for i in range(1, len(request.form) // 10 + 1):
-            data_coleta = request.form.get(f'data_{i}')
-            values = {
-                'Creatinina': request.form.get(f'creatinina_{i}'),
-                'eRFG': request.form.get(f'erfg_{i}'),
-                'Ureia': request.form.get(f'ureia_{i}'),
-                'Relação Proteína/Creatinina': request.form.get(f'relacao_{i}'),
-                'Triglicerídeos': request.form.get(f'triglicerideos_{i}'),
-                'Colesterol LDL': request.form.get(f'ldl_{i}'),
-                'Ácido Úrico': request.form.get(f'acido_urico_{i}'),
-                'Sódio': request.form.get(f'sodio_{i}'),
-                'Potássio': request.form.get(f'potassio_{i}'),
-                'Cálcio': request.form.get(f'calcio_{i}'),
-                'Microalbuminúria': request.form.get(f'microalbuminuria_{i}') # Nova coluna  
+        
+        # 1. Identifica quais linhas (índices) vieram do formulário HTML
+        indices = set()
+        for key in request.form:
+            if key.startswith('data_original_'):
+                # Pega o número depois do último sublinhado (ex: data_original_1 -> 1)
+                indices.add(key.split('_')[-1])
+        
+        # 2. Processa cada linha editada
+        for idx in indices:
+            original_date = request.form.get(f'data_original_{idx}')
+            new_date = request.form.get(f'data_{idx}')
+            
+            # Se a data mudou, usamos a nova. Se não, mantemos a original.
+            target_date = new_date if new_date else original_date
+            
+            # Mapeamento: (Nome da Coluna no Banco) : (Nome do Input no HTML)
+            # Esses nomes devem bater com os "name=" do seu arquivo exams_summary.html
+            campos = {
+                'Creatinina': f'creatinina_{idx}',
+                'eRFG': f'erfg_{idx}',
+                'Ureia': f'ureia_{idx}',
+                'Relação Proteína/Creatinina': f'relacao_{idx}',
+                'Triglicerídeos': f'triglicerideos_{idx}',
+                'Colesterol LDL': f'ldl_{idx}',
+                'Ácido Úrico': f'acido_urico_{idx}',
+                'Sódio': f'sodio_{idx}',
+                'Potássio': f'potassio_{idx}',
+                'Cálcio': f'calcio_{idx}',
+                'Microalbuminúria': f'microalbuminuria_{idx}'
             }
-            for nome, valor in values.items():
-                if valor and valor != '-':  # Verifica se o valor não é vazio ou '-'
-                    # Verifica se já existe um registro
-                    cursor.execute('SELECT id FROM exames WHERE nome = ? AND data_coleta = ?', (nome, data_coleta))
-                    existing_record = cursor.fetchone()
-                    if existing_record:
-                        cursor.execute('UPDATE exames SET valor = ? WHERE nome = ? AND data_coleta = ?', (valor, nome, data_coleta))
-                    else:
-                        cursor.execute('INSERT INTO exames (nome, valor, data_coleta) VALUES (?, ?, ?)', (nome, valor, data_coleta))
+
+            # Se a data mudou, removemos os registros da data antiga para não duplicar
+            if original_date and original_date != target_date:
+                 cursor.execute("DELETE FROM exames WHERE data_coleta = ?", (original_date,))
+
+            # Atualiza ou Insere os valores
+            for nome_db, input_html in campos.items():
+                valor = request.form.get(input_html)
+                
+                # Só salvamos se o valor existir e não for um traço
+                if valor and valor.strip() and valor.strip() != '-':
+                    # Tenta atualizar primeiro
+                    cursor.execute('''
+                        UPDATE exames SET valor = ? 
+                        WHERE nome = ? AND data_coleta = ?
+                    ''', (valor, nome_db, target_date))
+                    
+                    # Se não atualizou nada (porque não existia), insere novo
+                    if cursor.rowcount == 0:
+                        cursor.execute('''
+                            INSERT INTO exames (nome, valor, data_coleta)
+                            VALUES (?, ?, ?)
+                        ''', (nome_db, valor, target_date))
+
         conn.commit()
+
     return redirect(url_for('exams_summary'))
 
 @app.route('/gerar-nova-analise')
 def trigger_analise_ia():
-    # 1. Busca todos os dados necessários (lógica parecida com a da home)
-    exames_dict = {}
+    # 1. Busca Exames (Lógica existente)
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
+        exames_dict = {}
         for exame in patterns.keys():
             cursor.execute('SELECT data_coleta, valor FROM exames WHERE nome = ?', (exame,))
             dados = cursor.fetchall()
-            # ... (Lógica simplificada para montar o dicionário exames_dict para a IA) ...
-            # Para facilitar, vou sugerir que você abstraia a lógica de pegar dados
-            # da home para uma função separada, mas para ser rápido, 
-            # você pode copiar a lógica de montagem de 'labels' e 'valores' aqui.
+            labels = []
+            valores = []
+            for row in dados:
+                if row[1] and row[1] != '-':
+                    try:
+                        valores.append(float(row[1].replace(',', '.')))
+                        labels.append(str(row[0]))
+                    except: pass
             
-            # (Simplificando para o exemplo):
-            labels = [row[0] for row in dados]
-            valores = [row[1] for row in dados]
+            # Ordena
+            if labels and valores:
+                combined = sorted(zip(labels, valores), key=lambda x: datetime.strptime(x[0], '%d/%m/%Y'))
+                labels, valores = zip(*combined)
+                
             exames_dict[exame] = {'labels': labels, 'valores': valores}
 
-    # 2. Define as medicações (pode vir de um form ou hardcoded como estava)
+    # 2. Busca Medicações e Perfil (NOVOS)
     medicacoes_texto = get_medicacoes_texto()
+    perfil_texto = get_perfil_texto() # <--- Pega os dados do banco
+
     
-   # Chama o Gemini com o texto dinâmico
-    nova_analise = gerar_analise_medica(exames_dict, medicacoes_texto)
+    # ---3. NOVO: PEGA O DIÁRIO ---
+    eventos_texto = get_eventos_texto()
+
+    # 4. Passa tudo para a função
+    nova_analise = gerar_analise_medica(exames_dict, medicacoes_texto, perfil_texto, eventos_texto)
 
     salvar_analise_ia_db(nova_analise)
+
     return redirect(url_for('home'))
 
 @app.route('/adicionar_medicacao', methods=['POST'])
@@ -667,7 +852,61 @@ def deletar_medicacao(id):
         conn.commit()
     return redirect(url_for('home'))
 
+# --- NOVA ROTA PARA SALVAR O PERFIL ---
+@app.route('/atualizar_perfil', methods=['POST'])
+def atualizar_perfil():
+    nome = request.form.get('nome')
+    diagnostico = request.form.get('diagnostico')
+    peso = request.form.get('peso')
+    altura = request.form.get('altura')
+    pressao = request.form.get('pressao')
+    
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''UPDATE perfil SET 
+                          nome=?, diagnostico=?, peso=?, altura=?, pressao=? 
+                          WHERE id=1''', 
+                       (nome, diagnostico, peso, altura, pressao))
+        conn.commit()
+    return redirect(url_for('home'))
+
+# --- ROTA PARA EXCLUIR UMA DATA INTEIRA ---
+@app.route('/excluir_data_resumo')
+def excluir_data_resumo():
+    # Pega a data da URL (ex: ?data=31/10/2025)
+    data_coleta = request.args.get('data')
+    
+    if data_coleta:
+        with sqlite3.connect(DATABASE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM exames WHERE data_coleta = ?", (data_coleta,))
+            conn.commit()
+            
+    return redirect(url_for('exams_summary'))
+
+# NOVAS ROTAS (Adicionar/Deletar)
+@app.route('/adicionar_evento', methods=['POST'])
+def adicionar_evento():
+    data_evento = request.form.get('data_evento')
+    descricao = request.form.get('descricao')
+    
+    if data_evento and descricao:
+        with sqlite3.connect(DATABASE) as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO eventos (data_evento, descricao) VALUES (?, ?)', (data_evento, descricao))
+            conn.commit()
+    return redirect(url_for('home'))
+
+@app.route('/deletar_evento/<int:id>')
+def deletar_evento(id):
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM eventos WHERE id = ?', (id,))
+        conn.commit()
+    return redirect(url_for('home'))
+
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=8080)
    # app.run(debug=True)
+

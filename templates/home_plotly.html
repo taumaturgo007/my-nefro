@@ -1,709 +1,259 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Exames Renais (Plotly)</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f4f4f9;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            width: 80%;
-            margin-top: 20px;
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        h2 {
-            text-align: center;
-        }
-        .patient-profile {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .patient-profile img {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-        .patient-profile ul {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
-        }
-        .patient-profile ul li {
-            margin-bottom: 6px;
-        }
-        .patient-profile .medications {
-            margin-top: 10px;
-        }
-        .button-container {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-       /* Estilo para os botões */
-.button-container a {
-    background-color: #4CAF50;
-    color: white;
-    padding: 12px 20px;
-    text-decoration: none;
-    border-radius: 5px;
-    margin: 0 10px;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.button-container a:hover {
-    background-color: #45a049;
-}
-
-.general-analysis {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: 100%;
-}
-
-
-
-.ia-content {
-    padding: 12px 15px;
-    font-size: 13px;
-    line-height: 1.5;  /* Espaçamento maior para texto contínuo */
-    max-height: 400px; /* Altura máxima antes de aparecer scroll */
-    overflow-y: auto;  /* Scroll vertical quando necessário */
-    white-space: pre-wrap; /* Mantém quebras de linha do texto */
-}
-
-/* Barra de rolagem personalizada */
-.ia-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.ia-content::-webkit-scrollbar-thumb {
-    background: #4CAF50;
-    border-radius: 3px;
-}
-
-
-
-/* ===== [INÍCIO DOS NOVOS ESTILOS] ===== */
-/* Scrollbar personalizada */
-::-webkit-scrollbar {
-    width: 6px;
-}
-::-webkit-scrollbar-thumb {
-    background: #4CAF50;
-    border-radius: 3px;
-}
-
-/* Estilos para os containers de análise */
-
-.analysis-box h4 {
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    margin: 0;
-    padding: 12px 15px;
-    color: white;
-    border-radius: 8px 8px 0 0;
-}
-
-/* Responsividade */
-@media (max-width: 768px) {
-    .analysis-columns {
-        flex-direction: column;
-        gap: 15px;
-    }
-    .analysis-columns > div {
-        min-width: 100% !important;
-    }
-}
-/* ===== [FIM DOS NOVOS ESTILOS] ===== */
-
-.analysis-container {
-    display: flex;
-    gap: 15px;
-    margin: 20px 0;
-    align-items: stretch; /* Garante mesma altura */
-}
-
-.analysis-box {
-    background: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column;
-    height: 100%; /* Ocupa 100% da altura do container */
-}
-
-.analysis-header {
-    padding: 12px 15px;
-    color: white;
-    border-radius: 8px 8px 0 0;
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0; /* Remove margens padrão */
-}
-
-.analysis-body {
-    padding: 15px;
-    flex-grow: 1; /* Preenche o espaço restante */
-    display: flex;
-    flex-direction: column;
-}
-
-/* Específico para cada tipo de análise */
-.complete-analysis .analysis-header {
-    background: #4CAF50;
-}
-
-.ia-analysis .analysis-header {
-    background: #2c3e50;
-}
-
-.complete-analysis .analysis-body {
-    font-size: 13px;
-    line-height: 1.4;
-}
-
-.ia-analysis .analysis-body {
-    font-size: 13px;
-    line-height: 1.5;
-    overflow-y: auto;
-    max-height: 400px;
-}
-
-
-@media (max-width: 768px) {
-    .analysis-container {
-        flex-direction: column;
-        gap: 15px;
-    }
-    .analysis-box {
-        min-width: 100% !important;
-    }
-    .ia-content {
-        max-height: none;
-    }
-}
-
-/* Estilo para o modal */
-/* Estilo para o modal de senha */
-#senhaModal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    display: none; /* Inicialmente escondido */
-}
-
-#senhaModal > div {
-    background: #fff;
-    width: 90%;
-    max-width: 300px;
-    padding: 25px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-#senhaInput {
-    width: calc(100% - 20px) !important;
-    padding: 10px !important;
-    margin: 10px 0 !important;
-    border: 1px solid #ddd !important;
-    border-radius: 4px !important;
-    box-sizing: border-box !important;
-}
-
-.modal-buttons {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 20px;
-}
-
-.modal-buttons button {
-    padding: 10px 20px !important;
-    border: none !important;
-    border-radius: 4px !important;
-    flex: 1;
-}
-
-.modal-buttons button:first-child {
-    margin-right: 10px;
-    background: #4CAF50 !important;
-    color: white !important;
-}
-
-.modal-buttons button:last-child {
-    background: #f44336 !important;
-    color: white !important;
-}
-/* Responsividade */
-@media (max-width: 600px) {
-    .button-container {
-        flex-direction: column;
-        gap: 10px;
-    }
-    .button-container a {
-        width: 100%;
-        text-align: center;
-        margin: 5px 0;
-    }
-}
-        .chart-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        .chart-wrapper {
-            display: flex;
-            width: 100%;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .chart {
-            flex: 2;
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin-bottom: 0;  /* Remova margem inferior se existir */
-        }
-
-        /* Ajuste para o container do gráfico */
-.js-plotly-plot .plot-container {
-    margin-top: 20px;
-}
-
-/* Ajuste para o menu de opções */
-.modebar {
-    top: 35px !important;
-    right: 10px !important;
-}
-
-
-
-        /* Ajuste o container do gráfico */
-        .plot-container {
-            width: 100%;
-            height: 100%;
-        }
-        .summary {
-            flex: 1;
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-           
-        }
-        .general-analysis {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-
-        .general-analysis h4 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-
-        .general-analysis ul {
-            padding-left: 20px;
-            margin: 0;
-        }
-
-        .general-analysis li {
-            margin-bottom: 5px;
-            color: #34495e;
-        }
-
-
-
-
-    </style>
-    <!-- Inclua o Plotly -->
+    <title>AppMed - Dashboard</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; overflow-x: hidden; }
+        .sidebar {
+            height: 100vh; background-color: #ffffff; border-right: 1px solid #e9ecef;
+            position: fixed; top: 0; left: 0; width: 250px; padding: 20px;
+            z-index: 1030; display: flex; flex-direction: column;
+        }
+        .main-content { margin-left: 250px; padding: 30px; }
+        .profile-section { text-align: center; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid #eee; position: relative; }
+        .profile-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #e2e8f0; margin-bottom: 10px; }
+        .btn-edit-profile { position: absolute; top: 0; right: 0; background: #f0f2f5; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 14px; color: #666; cursor: pointer; }
+        .nav-link { color: #495057; padding: 10px 15px; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; display: flex; align-items: center; gap: 10px; font-weight: 500; text-decoration: none;}
+        .nav-link:hover { background-color: #e9ecef; color: #0d6efd; }
+        .nav-link.active { background-color: #e7f1ff; color: #0d6efd; }
+        .card-custom { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); background: white; margin-bottom: 24px; overflow: hidden; }
+        .ai-card { border-left: 5px solid #198754; background: linear-gradient(to right, #f8fffb, #ffffff); }
+        @media (max-width: 768px) { .sidebar { width: 100%; height: auto; position: relative; border-right: none; } .main-content { margin-left: 0; } }
+        .truncate-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 1; /* Limita a 1 linha no card principal */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    .markdown-content {
+    white-space: pre-wrap; /* Mantém as quebras de linha enviadas pela IA */
+    line-height: 1.6;
+    color: #344767;
+}
+
+.markdown-content b, .markdown-content strong {
+    color: #198754; /* Deixa o negrito da IA em um tom de verde médico */
+    font-weight: 600;
+}
+}
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Dashboard de Exames Renais (Plotly)</h2>
 
-        <!-- Perfil do Paciente -->
-        <div class="patient-profile" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
-        
-            <div style="flex: 1; min-width: 300px;">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-                    <div style="width: 60px; height: 60px; background: #e0e0e0; border-radius: 50%; overflow: hidden;">
-                        <img src="{{ url_for('static', filename='thumb.jpg') }}" alt="Foto" style="width: 100%; height: 100%; object-fit: cover;">
-                    </div>
-                    <div>
-                        <h3 style="margin: 0; color: #333;">Jocimar</h3>
-                        <p style="margin: 2px 0; color: #666;">50 anos • Nefropatia por IgA</p>
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 13px; color: #555;">
-                    <div><strong>Peso:</strong> 83 kg</div>
-                    <div><strong>Altura:</strong> 1.69 m</div>
-                    <div><strong>Pressão Art.:</strong> 110/70 mmHg</div>
-                    <div><strong>Data de Nascimento:</strong> 18/12/75</div>
-                </div>
-            </div>
-    
-            <div style="flex: 1; min-width: 300px; background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 15px; margin-left: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <strong style="color: #2c3e50;">💊 Medicações em Uso</strong>
-                    <button onclick="abrirModalMed()" style="background: none; border: none; color: #1565c0; cursor: pointer; font-size: 12px; font-weight: bold;">
-                        + GERENCIAR
-                    </button>
-                </div>
-                
-                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #444;">
-                    {% if medicacoes %}
-                        {% for med in medicacoes %}
-                            <li style="margin-bottom: 4px;">
-                                <strong>{{ med[1] }}</strong> <span style="color: #777;">- {{ med[2] }}</span>
-                            </li>
-                        {% endfor %}
-                    {% else %}
-                        <li style="color: #999; list-style: none;">Nenhuma medicação cadastrada.</li>
-                    {% endif %}
-                </ul>
-            </div>
+    <div class="sidebar">
+        <div class="profile-section">
+            <button class="btn-edit-profile" data-bs-toggle="modal" data-bs-target="#modalPerfil" title="Editar Perfil">✎</button>
+            <img src="{{ url_for('static', filename='thumb.jpg') }}" class="profile-img" alt="User">
+            <h5 class="mb-0 fw-bold">{{ perfil.nome }}</h5>
+            <small class="text-muted d-block mt-1">{{ perfil.diagnostico }}</small>
         </div>
-    
-        <div id="modalMed" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; justify-content:center; align-items:center;">
-            <div style="background:#fff; width:90%; max-width:400px; padding:20px; border-radius:8px; box-shadow:0 4px 15px rgba(0,0,0,0.2);">
-                <h3 style="margin-top:0; color: #2c3e50;">Gerenciar Medicações</h3>
-                
-                <ul style="list-style: none; padding: 0; max-height: 150px; overflow-y: auto; border-bottom: 1px solid #eee; padding-bottom: 10px;">
-                    {% for med in medicacoes %}
-                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed #f0f0f0;">
-                        <span>{{ med[1] }} <small>({{ med[2] }})</small></span>
-                        <a href="/deletar_medicacao/{{ med[0] }}" style="color: #d32f2f; text-decoration: none; font-weight: bold;">✕</a>
-                    </li>
-                    {% endfor %}
-                </ul>
-    
-                <form action="/adicionar_medicacao" method="POST" style="margin-top: 15px;">
-                    <label style="font-size: 12px; font-weight: bold;">Adicionar Novo:</label>
-                    <div style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input type="text" name="nome" placeholder="Nome (ex: Aradois)" required style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <input type="text" name="detalhes" placeholder="Dose (ex: 50mg)" required style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                    <button type="submit" style="width: 100%; background: #4CAF50; color: white; padding: 10px; border: none; border-radius: 4px; margin-top: 10px; cursor: pointer;">Salvar Medicação</button>
-                </form>
-                
-                <button onclick="document.getElementById('modalMed').style.display='none'" style="width: 100%; background: #ddd; color: #333; padding: 8px; border: none; border-radius: 4px; margin-top: 10px; cursor: pointer;">Fechar</button>
-            </div>
+        <nav class="nav flex-column flex-grow-1">
+            <a href="#" class="nav-link active">📊 Dashboard</a>
+            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#modalMedicacoes">💊 Medicações</a>
+            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#modalEvento">📅 Diário de Saúde</a>
+            <a href="/exams" class="nav-link" onclick="return verificarSenha('exams', event)">📝 Editar Exames</a>
+            <a href="/exams_summary" class="nav-link" onclick="return verificarSenha('exams_summary', event)">📋 Sumário Geral</a>
+        </nav>
+        <div class="mt-auto pt-3 border-top small text-muted">
+            <div class="d-flex justify-content-between mb-1"><span>Peso:</span> <strong>{{ perfil.peso }} kg</strong></div>
+            <div class="d-flex justify-content-between mb-1"><span>Altura:</span> <strong>{{ perfil.altura }} m</strong></div>
+            <div class="d-flex justify-content-between"><span>PA:</span> <strong>{{ perfil.pressao }}</strong></div>
         </div>
-    
-        <script>
-            function abrirModalMed() {
-                document.getElementById('modalMed').style.display = 'flex';
-            }
-        </script>
-         <!-- Botões - Mantenha exatamente assim -->
-       <div class="button-container">
-        <a href="/exams_summary" onclick="return verificarSenha('exams_summary', event)">Sumário de Exames</a>
-        <a href="/exams" onclick="return verificarSenha('exams', event)">Editar/Incluir Resultados</a>
-       </div>
+    </div>
 
-        <div class="analysis-container">
-            <!-- Análise Completa -->
-            <div style="flex: 1; min-width: 30%;">
-                <div class="analysis-box complete-analysis">
-                    <h4 class="analysis-header">{{ analise_geral.titulo }}</h4>
-                    <div class="analysis-body">
-                        <ul style="margin: 0; padding-left: 20px;">
-                            {% for item in analise_geral.itens %}
-                            <li style="margin-bottom: 8px;">{{ item }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold text-dark m-0">Olá, {{ perfil.nome.split()[0] }}!</h3>
+            <span class="badge bg-success rounded-pill px-3 py-2">Monitoramento Ativo</span>
+        </div>
+
+        <div class="card card-custom ai-card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="card-title text-success mb-0 d-flex align-items-center gap-2">🤖 Análise Inteligente</h5>
+            <a href="{{ url_for('trigger_analise_ia') }}" class="btn btn-sm btn-outline-success">Atualizar Análise</a>
+        </div>
         
-            <!-- Análise por IA -->
-            <div style="background-color: #e3f2fd; padding: 20px; border-radius: 10px; margin: 20px auto; width: 80%; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                <h3 style="color: #1565c0; margin-top: 0;">🤖 Análise Médica (Gemini AI)</h3>
-                
-                <div style="
-    background-color: #f8f9fa; 
-    padding: 15px;            /* Reduzi de 20px para 15px */
-    border-radius: 0 0 8px 8px; 
-    font-size: 13px;          /* AQUI: Reduzi de 15px para 13px (padrão do site) */
-    line-height: 1.5;         /* Espaçamento entre linhas mais compacto */
-    color: #444; 
-    white-space: pre-line;
-    font-family: Arial, sans-serif;">
-    {{ analise_medica }}
+        <div class="markdown-content" style="white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #344767;">
+            {{ analise_medica | replace('**', '<b>') | replace('**', '</b>') | safe }}
+        </div>
+    </div>
 </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card card-custom h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="text-uppercase text-muted mb-0 fw-bold" style="font-size: 12px;">💊 Medicações</h6>
+                            <button class="btn btn-link btn-sm text-decoration-none p-0" data-bs-toggle="modal" data-bs-target="#modalMedicacoes">Gerenciar</button>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if medicacoes %}
+                                {% for med in medicacoes %}
+                                    <span class="badge bg-light text-dark border">{{ med[1] }} <small class="text-muted">{{ med[2] }}</small></span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">Nenhuma cadastrada.</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
             
-                <div style="text-align: center; margin-top: 20px;">
-                    <a href="{{ url_for('trigger_analise_ia') }}" style="text-decoration: none;">
-                        <button style="background-color: #1565c0; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s;">
-                            ✨ Gerar Nova Análise Agora
-                        </button>
-                    </a>
-                    <p style="font-size: 12px; color: #666; margin-top: 5px;">Clique apenas se tiver novos exames.</p>
+            <div class="col-md-6">
+                <div class="card card-custom h-100">
+                   <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="text-uppercase text-muted mb-0 fw-bold" style="font-size: 11px;">📅 Últimos Eventos</h6>
+        <button class="btn btn-link btn-sm text-decoration-none p-0" data-bs-toggle="modal" data-bs-target="#modalEvento" style="font-size: 11px;">Ver todos / +</button>
+    </div>
+    
+    <div style="max-height: 100px; overflow-y: hidden;">
+        {% if eventos %}
+            <div class="list-group list-group-flush">
+                {% for evt in eventos[:3] %} {# Pega apenas os 3 primeiros da lista enviada pelo Python #}
+                <div class="py-1 border-bottom-0">
+                    <div class="d-flex w-100 justify-content-between">
+                        <small class="text-primary fw-bold" style="font-size: 10px;">{{ evt[1] }}</small>
+                    </div>
+                    <p class="mb-0 text-dark truncate-text" style="font-size: 12px; line-height: 1.2;">{{ evt[2] }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <span class="text-muted small">Sem registros.</span>
+        {% endif %}
+    </div>
+</div>
                 </div>
             </div>
         </div>
-      
-    
-    <div id="senhaModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; display:flex; justify-content:center; align-items:center;">
-        <div style="background:#fff; width:90%; max-width:300px; padding:20px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.2);">
-            <h3 style="margin-top:0;">Digite a Senha</h3>
-            <input type="password" id="senhaInput" style="width:100%; padding:10px; margin:15px 0; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
-            <div style="display:flex; gap:10px;">
-                <button onclick="validarSenha()" style="background:#4CAF50; color:white; padding:10px; border:none; border-radius:4px; flex:1;">Acessar</button>
-                <button onclick="fecharModal()" style="background:#f44336; color:white; padding:10px; border:none; border-radius:4px; flex:1;">Cancelar</button>
+
+        <div class="row mt-2">
+            {% for nome_exame, dados in exames.items() %}
+            <div class="col-lg-6">
+                <div class="card card-custom">
+                    <div class="card-body p-2">
+                        <div id="chart-{{ loop.index }}" style="width: 100%; min-height: 380px;"></div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalPerfil" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">✏️ Perfil</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form action="/atualizar_perfil" method="POST">
+                        <input type="text" name="nome" class="form-control mb-2" value="{{ perfil.nome }}" placeholder="Nome" required>
+                        <input type="text" name="diagnostico" class="form-control mb-2" value="{{ perfil.diagnostico }}" placeholder="Diagnóstico">
+                        <div class="row g-2">
+                            <div class="col-4"><input type="text" name="peso" class="form-control" value="{{ perfil.peso }}" placeholder="Peso"></div>
+                            <div class="col-4"><input type="text" name="altura" class="form-control" value="{{ perfil.altura }}" placeholder="Altura"></div>
+                            <div class="col-4"><input type="text" name="pressao" class="form-control" value="{{ perfil.pressao }}" placeholder="PA"></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mt-3">Salvar</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalMedicacoes" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">💊 Medicações</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <ul class="list-group mb-3">
+                        {% for med in medicacoes %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ med[1] }} ({{ med[2] }})
+                            <a href="/deletar_medica/{{ med[0] }}" class="btn btn-sm btn-outline-danger">✕</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <form action="/adicionar_medicacao" method="POST">
+                        <div class="row g-2">
+                            <div class="col-7"><input type="text" name="nome" class="form-control form-control-sm" placeholder="Remédio" required></div>
+                            <div class="col-5"><input type="text" name="detalhes" class="form-control form-control-sm" placeholder="Dose" required></div>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100 mt-2">Adicionar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalEvento" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">📝 Diário</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <ul class="list-group mb-3" style="max-height: 150px; overflow-y: auto;">
+                        {% for evt in eventos %}
+                        <li class="list-group-item d-flex justify-content-between small">
+                            <span><strong>{{ evt[1] }}:</strong> {{ evt[2] }}</span>
+                            <a href="/deletar_evento/{{ evt[0] }}" class="text-danger ms-2">✕</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <form action="/adicionar_evento" method="POST">
+                        <input type="date" name="data_evento" class="form-control form-control-sm mb-2" required>
+                        <textarea name="descricao" class="form-control form-control-sm mb-2" placeholder="O que houve?" required></textarea>
+                        <button type="submit" class="btn btn-primary btn-sm w-100">Salvar Registro</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalSenha" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body p-4 text-center">
+                    <h6>🔒 Senha de Acesso</h6>
+                    <input type="password" id="senhaInput" class="form-control my-3 text-center">
+                    <button onclick="validarSenha()" class="btn btn-primary w-100">Entrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let destino = '';
-        const SENHA_CORRETA = "1234"; // Defina sua senha aqui
-        
-        // Função para verificar se estamos na página home
-        function isHomePage() {
-            return window.location.pathname === '/home' || 
-                   window.location.pathname === '/';
-        }
-    
-        // Função principal de verificação
-        function verificarSenha(dest, event) {
-            event.preventDefault();
-            destino = dest;
-            document.getElementById('senhaModal').style.display = 'flex';
-            document.getElementById('senhaInput').focus();
+        {% for exame, dados in exames.items() %}
+        (function() {
+            var labels = {{ dados['labels'] | tojson }};
+            var valores = {{ dados['valores'] | tojson }};
+            var nomeExibicao = "{{ exame }}";
+            var tipo = (nomeExibicao === 'eRFG') ? 'bar' : 'scatter';
+            var data = [{ x: labels, y: valores, type: tipo, mode: 'lines+markers', marker: { color: '#0d6efd' }, line: { width: 3 } }];
+            var layout = { title: { text: nomeExibicao }, margin: { t: 40, b: 40, l: 40, r: 20 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', autosize: true };
+            Plotly.newPlot('chart-{{ loop.index }}', data, layout, {responsive: true, displayModeBar: false});
+        })();
+        {% endfor %}
+
+        var linkDestino = "";
+        function verificarSenha(destino, event) {
+            event.preventDefault(); linkDestino = "/" + destino;
+            new bootstrap.Modal(document.getElementById('modalSenha')).show();
             return false;
         }
-    
         function validarSenha() {
-            const senha = document.getElementById('senhaInput').value;
-            if(senha === SENHA_CORRETA) {
-                // Armazena no sessionStorage que a senha foi validada
-                sessionStorage.setItem('senhaValidada', 'true');
-                window.location.href = '/' + destino;
-            } else {
-                alert("Senha incorreta!");
-                document.getElementById('senhaInput').value = '';
-                document.getElementById('senhaInput').focus();
-            }
+            if (document.getElementById('senhaInput').value === "1234") window.location.href = linkDestino;
+            else alert("Incorreta!");
         }
-    
-        function fecharModal() {
-            document.getElementById('senhaModal').style.display = 'none';
-            document.getElementById('senhaInput').value = '';
-        }
-    
-        // Fechar modal ao clicar fora ou pressionar ESC
-        document.addEventListener('click', function(e) {
-            if(e.target.id === 'senhaModal') fecharModal();
-        });
-    
-        document.addEventListener('keydown', function(e) {
-            if(e.key === 'Escape') fecharModal();
-        });
-    
-        // Controle do modal ao carregar a página
-        window.addEventListener('load', function() {
-            // Sempre fecha o modal ao carregar
-            fecharModal();
-            
-            // Se voltou de uma página protegida e a senha foi validada
-            if (sessionStorage.getItem('senhaValidada') === 'true') {
-                sessionStorage.removeItem('senhaValidada');
-            }
-        });
-    
-        // Controle específico para o evento de voltar (pageshow)
-        window.addEventListener('pageshow', function(event) {
-            // Fecha o modal se estiver aberto
-            fecharModal();
-            
-            // Verifica se é uma navegação do cache (como ao voltar)
-            if (event.persisted) {
-                fecharModal();
-            }
-        });
-    </script>
-    
-    <!-- Gráficos e resumos -->
-<div class="chart-container">
-    {% for exame, dados in exames.items() %}
-    <div class="chart-wrapper">
-        <!-- Gráfico -->
-        <div class="chart">
-            <!--<h3>{{ exame }}</h3>-->
-            <div id="{{ exame }}Chart"></div>
-        </div>
-
-        <!-- Resumo -->
-        <div class="summary">
-            <h3>Resumo - {{ exame }}</h3>
-            <p>
-                {% if exame == "Creatinina" %}
-                    A creatinina é um marcador da função renal. Valores normais:
-                    <ul>
-                        <li>Homens: 0,7 a 1,3 mg/dL</li>
-                        <li>Mulheres: 0,6 a 1,1 mg/dL</li>
-                    </ul>
-                {% elif exame == "Ureia" %}
-                    A ureia reflete a função renal e a ingestão de proteínas. Valores normais:
-                    <ul>
-                        <li>10 a 50 mg/dL</li>
-                    </ul>
-                {% elif exame == "eRFG" %}
-                    A estimativa do ritmo de filtração glomerular (eRFG) mede a função renal. Valores normais:
-                    <ul>
-                        <li>Acima de 60 mL/min/1,73 m²</li>
-                    </ul>
-                {% elif exame == "Colesterol LDL" %}
-                    O colesterol LDL é o "colesterol ruim". Valores desejáveis:
-                    <ul>
-                        <li>Menos de 100 mg/dL</li>
-                    </ul>
-                {% elif exame == "Triglicerídeos" %}
-                    Os triglicerídeos são gorduras no sangue. Valores normais:
-                    <ul>
-                        <li>Menos de 150 mg/dL</li>
-                    </ul>
-                {% elif exame == "Sódio" %}
-                    O sódio é um eletrólito importante. Valores normais:
-                    <ul>
-                        <li>135 a 145 meq/L</li>
-                    </ul>
-                {% elif exame == "Potássio" %}
-                    O potássio é um eletrólito importante. Valores normais:
-                    <ul>
-                        <li>3,5 a 5,0 meq/L</li>
-                    </ul>
-                {% elif exame == "Cálcio" %}
-                    O cálcio é essencial para ossos e músculos. Valores normais:
-                    <ul>
-                        <li>8,5 a 10,2 mg/dL</li>
-                    </ul>
-                {% elif exame == "Ácido Úrico" %}
-                    O ácido úrico está relacionado à gota. Valores normais:
-                    <ul>
-                        <li>Homens: 3,4 a 7,0 mg/dL</li>
-                        <li>Mulheres: 2,4 a 6,0 mg/dL</li>
-                    </ul>
-                {% elif exame == "Microalbuminúria" %}
-                    A microalbuminúria é um marcador precoce de doença renal. Valores normais:
-                    <ul>
-                        <li>Menos de 30 mg/L</li>
-                    </ul>
-                {% else %}
-                    Informações sobre este exame não estão disponíveis.
-                {% endif %}
-            </p>
-
-            <!-- Análise Automática Gerada -->
-            <div class="analysis">
-                <h4>Análise Automática</h4>
-                <p>
-                    {% if exame in analise %}
-                        {{ analise[exame] }}
-                    {% else %}
-                        Nenhuma análise disponível para este exame.
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-    
-</div>
-
-    </div>
-
-    <script>
-    // Dados passados pelo Flask
-    const exames = {{ exames | tojson | safe }};
-
-    // Função para criar gráficos com Plotly
-    function criarGrafico(exame, labels, valores) {
-    const nomeExibicao = exame === 'TFG' ? 'eRFG' : exame;
-    const tipoGrafico = exame === 'eRFG' ? 'bar' : 'line';
-    
-    const layout = {
-        title: {
-            text: nomeExibicao,
-            font: {
-                size: 18,
-                color: '#2c3e50',
-                family: 'Arial'
-            },
-            y: 0.98,  // Posição vertical ajustada
-            x: 0.5,   // Centralizado
-            xanchor: 'center',
-            yanchor: 'top'
-        },
-        margin: {
-            t: 80,    // Margem superior aumentada
-            b: 100,   // Margem inferior
-            l: 60,    // Margem esquerda
-            r: 60     // Margem direita
-        },
-        hovermode: 'closest',
-        modebar: {
-            orientation: 'v',  // Menu na vertical
-            bgcolor: 'rgba(255,255,255,0.7)',  // Fundo semi-transparente
-            color: '#2c3e50',  // Cor dos ícones
-            activecolor: '#4CAF50'  // Cor quando ativo
-        }
-    };
-
-    const data = [{
-        x: labels,
-        y: valores,
-        type: tipoGrafico,
-        mode: tipoGrafico === 'line' ? 'lines+markers' : 'bars',
-        marker: {
-            color: '#4CAF50',
-            size: 8
-        },
-        line: {
-            width: 2
-        }
-    }];
-
-    Plotly.newPlot(`${exame}Chart`, data, layout);
-}
-
-        // Renderiza um gráfico para cada exame
-        Object.entries(exames).forEach(([exame, dados]) => {
-            criarGrafico(exame, dados.labels, dados.valores);
-        });
     </script>
 </body>
 </html>

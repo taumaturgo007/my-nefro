@@ -1,135 +1,193 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resumo dos Exames</title>
+    <title>Sumário de Exames</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f4f4f9;
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; overflow-x: hidden; }
+        
+        /* --- SIDEBAR (Igual à Home) --- */
+        .sidebar {
+            height: 100vh; background-color: #ffffff; border-right: 1px solid #e9ecef;
+            position: fixed; top: 0; left: 0; width: 250px; padding: 20px;
+            z-index: 1030; display: flex; flex-direction: column;
         }
-        .container {
-            background: #ffffff;
+        .main-content { margin-left: 250px; padding: 30px; }
+
+        .profile-img {
+            width: 80px; height: 80px; border-radius: 50%; object-fit: cover;
+            border: 3px solid #e2e8f0; margin-bottom: 10px;
+        }
+
+        .nav-link {
+            color: #495057; padding: 10px 15px; border-radius: 8px; margin-bottom: 5px;
+            transition: all 0.2s; display: flex; align-items: center; gap: 10px; font-weight: 500;
+            text-decoration: none;
+        }
+        .nav-link:hover { background-color: #e9ecef; color: #0d6efd; }
+        .nav-link.active { background-color: #e7f1ff; color: #0d6efd; }
+
+        /* Estilo da Tabela de Edição */
+        .table-responsive {
+            background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.04);
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            width: 90%;
-            overflow-x: auto;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-        .highlight {
-            background-color: #ffeb3b !important;
-        }
-        input {
-            width: 100%;
-            border: none;
-            text-align: center;
+        
+        /* Inputs dentro da tabela (para parecerem texto limpo mas editável) */
+        .form-control-plaintext-custom {
+            border: 1px solid transparent;
             background: transparent;
-            font-size: 16px;
+            padding: 4px;
+            border-radius: 4px;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
         }
-        input:focus {
-            background: #e0f7fa;
+        .form-control-plaintext-custom:focus {
+            border: 1px solid #86b7fe;
+            background: white;
             outline: none;
         }
-        .save-btn {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-right: 10px; /* Adiciona espaço entre os botões */
+        .form-control-plaintext-custom:hover {
+            border: 1px solid #e9ecef;
+            background: #f8f9fa;
         }
-        .save-btn:hover {
-            background-color: #45a049;
+
+        /* Cabeçalho Fixo da Tabela */
+        th {
+            background-color: #f8f9fa !important;
+            font-weight: 600;
+            color: #495057;
+            text-transform: uppercase;
+            font-size: 12px;
+            white-space: nowrap;
         }
-        .button-container {
-            display: flex; /* Alinha os botões horizontalmente */
-            justify-content: flex-start; /* Alinha os botões à esquerda */
-            margin-top: 10px; /* Espaço acima dos botões */
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; } /* Esconde sidebar no mobile por enquanto */
+            .main-content { margin-left: 0; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Resumo dos Exames</h2>
-        <form action="/update_exams_summary" method="post">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Data/Exame</th>
-                        <th>Creatinina</th>
-                        <th>eRFG</th>
-                        <th>Ureia</th>
-                        <th>Relação Proteína/Creatinina</th>
-                        <th>Triglicerídeos</th>
-                        <th>LDL</th>
-                        <th>Ácido Úrico</th>
-                        <th>Sódio</th>
-                        <th>Potássio</th>
-                        <th>Cálcio</th>
-                        <th>Microalbuminúria</th>  <!-- Nova coluna -->
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for exam in exams_summary %}
-                    <tr class="{% if loop.first %}highlight{% endif %}">
-                        <td><input type="text" name="data_{{ loop.index }}" value="{{ exam['data'] }}" readonly></td>
-                        <td><input type="text" name="creatinina_{{ loop.index }}" value="{{ exam['Creatinina'] }}"></td>
-                        <td><input type="text" name="erfg_{{ loop.index }}" value="{{ exam['eRFG'] }}"></td>
-                        <td><input type="text" name="ureia_{{ loop.index }}" value="{{ exam['Ureia'] }}"></td>
-                        <td><input type="text" name="relacao_{{ loop.index }}" value="{{ exam['Relação Proteína/Creatinina'] }}"></td>
-                        <td><input type="text" name="triglicerideos_{{ loop.index }}" value="{{ exam['Triglicerídeos'] }}"></td>
-                        <td><input type="text" name="ldl_{{ loop.index }}" value="{{ exam['LDL'] }}"></td>
-                        <td><input type="text" name="acido_urico_{{ loop.index }}" value="{{ exam['Ácido Úrico'] }}"></td>
-                        <td><input type="text" name="sodio_{{ loop.index }}" value="{{ exam['Sódio'] }}"></td>
-                        <td><input type="text" name="potassio_{{ loop.index }}" value="{{ exam['Potássio'] }}"></td>
-                        <td><input type="text" name="calcio_{{ loop.index }}" value="{{ exam['Cálcio'] }}"></td>
-                        <td><input type="text" name="microalbuminuria_{{ loop.index }}" value="{{ exam['Microalbuminúria'] }}"></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            
-            <!-- Container para os botões -->
-            <div class="button-container">
-                <button type="submit" class="save-btn">Salvar Alterações</button>
-                <button type="button" class="save-btn" onclick="document.getElementById('file-input').click()">Carregar Novos Exames</button>
-            </div>
-        </form>
 
-        <!-- Formulário de upload (oculto) -->
+    <div class="sidebar">
+        <div class="text-center pb-3 mb-3 border-bottom">
+            <img src="{{ url_for('static', filename='thumb.jpg') }}" class="profile-img" alt="User">
+            <h5 class="mb-0 fw-bold">{{ perfil.nome }}</h5>
+            <small class="text-muted">{{ perfil.diagnostico }}</small>
+        </div>
+
+        <nav class="nav flex-column flex-grow-1">
+            <a href="/home" class="nav-link">📊 Dashboard</a>
+            <a href="/exams" class="nav-link">📝 Editar Exames</a>
+            <a href="#" class="nav-link active">📋 Sumário Geral</a>
+        </nav>
+
+        <div class="mt-auto pt-3 border-top small text-muted">
+            <div class="d-flex justify-content-between mb-1"><span>Peso:</span> <strong>{{ perfil.peso }} kg</strong></div>
+            <div class="d-flex justify-content-between mb-1"><span>Altura:</span> <strong>{{ perfil.altura }} m</strong></div>
+            <div class="d-flex justify-content-between"><span>PA:</span> <strong>{{ perfil.pressao }}</strong></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="fw-bold text-dark m-0">Sumário de Resultados</h3>
+            <div>
+                <button type="button" class="btn btn-outline-primary me-2" onclick="document.getElementById('file-input').click()">
+                    📂 Carregar PDF
+                </button>
+                </div>
+        </div>
+
+        <div class="alert alert-info d-flex align-items-center" role="alert">
+            <svg class="bi flex-shrink-0 me-2" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+            <div>
+                Edite os valores diretamente na tabela e clique em <strong>Salvar Alterações</strong> no final da página.
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <form action="/update_summary" method="post">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr class="text-center">
+                            <th>Data</th>
+                            <th>Creatinina</th>
+                            <th>eRFG</th>
+                            <th>Ureia</th>
+                            <th>Rel. P/C</th>
+                            <th>Triglic.</th>
+                            <th>LDL</th>
+                            <th>Ác. Úrico</th>
+                            <th>Sódio</th>
+                            <th>Potássio</th>
+                            <th>Cálcio</th>
+                            <th>Microalb.</th>
+                            <th style="width: 50px;">Ações</th> </tr>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exam in exams_summary %}
+                        <tr>
+                            <input type="hidden" name="data_original_{{ loop.index }}" value="{{ exam['Data'] }}">
+                            
+                            <td style="min-width: 110px;">
+                                <input type="text" class="form-control-plaintext-custom fw-bold" name="data_{{ loop.index }}" value="{{ exam['Data'] }}">
+                            </td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="creatinina_{{ loop.index }}" value="{{ exam['Creatinina'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom fw-bold text-primary" name="erfg_{{ loop.index }}" value="{{ exam['eRFG'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="ureia_{{ loop.index }}" value="{{ exam['Ureia'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="relacao_{{ loop.index }}" value="{{ exam['Relação Proteína/Creatinina'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="triglicerideos_{{ loop.index }}" value="{{ exam['Triglicerídeos'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="ldl_{{ loop.index }}" value="{{ exam['Colesterol LDL'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="acido_urico_{{ loop.index }}" value="{{ exam['Ácido Úrico'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="sodio_{{ loop.index }}" value="{{ exam['Sódio'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="potassio_{{ loop.index }}" value="{{ exam['Potássio'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="calcio_{{ loop.index }}" value="{{ exam['Cálcio'] }}"></td>
+                            <td><input type="text" class="form-control-plaintext-custom" name="microalbuminuria_{{ loop.index }}" value="{{ exam['Microalbuminúria'] }}"></td>
+                        <td class="text-center">
+            <a href="/excluir_data_resumo?data={{ exam['Data'] }}" 
+               class="btn btn-sm btn-outline-danger border-0" 
+               title="Excluir linha"
+               onclick="return confirm('Tem certeza que deseja apagar todos os exames do dia {{ exam['Data'] }}?');">
+                🗑️
+            </a>
+        </td>
+                        
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <button type="submit" class="btn btn-success px-4 py-2 fw-bold">
+                        💾 Salvar Todas as Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" style="display: none;">
             <input type="file" name="file" id="file-input" accept="application/pdf" required>
         </form>
+
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Adiciona um listener para enviar o formulário quando um arquivo for selecionado
+        // Auto-envio do upload ao selecionar arquivo
         document.getElementById('file-input').addEventListener('change', function() {
-            document.getElementById('upload-form').submit();
+            if (this.files.length > 0) {
+                document.getElementById('upload-form').submit();
+            }
         });
     </script>
 </body>
