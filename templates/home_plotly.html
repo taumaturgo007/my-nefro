@@ -366,42 +366,149 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        {% for exame, dados in exames.items() %}
+{% for exame, dados in exames.items() %}
         (function () {
-            var labels = {{ dados['labels'] | tojson
-        }};
-        var valores = {{ dados['valores'] | tojson }};
-        var nomeExibicao = "{{ exame }}";
-        var tipo = (nomeExibicao === 'eRFG') ? 'bar' : 'scatter';
-        var data = [{ x: labels, y: valores, type: tipo, mode: 'lines+markers', marker: { color: '#0d6efd' }, line: { width: 3 } }];
-        var layout = { title: { text: nomeExibicao }, margin: { t: 40, b: 40, l: 40, r: 20 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', autosize: true, dragmode: false };
-        Plotly.newPlot(
-            'chart-{{ loop.index }}',
-            data,
-            layout,
-            {
-                responsive: true,
-                displayModeBar: false,
-                scrollZoom: false,
-                doubleClick: false,
-                showTips: false
+            // --- 1. DADOS ---
+            var raw_labels = {{ dados['labels'] | tojson }};
+            var valores = {{ dados['valores'] | tojson }};
+            var nomeExibicao = "{{ exame }}";
+            var tipo = (nomeExibicao === 'eRFG') ? 'bar' : 'scatter';
+            var ehTempoReal = (nomeExibicao === 'Creatinina Tempo Real');
+
+            // Formatação Visual (MM/AA) para exibir
+            var labels_formatadas = raw_labels.map(function(d) {
+                if (!d || d.length < 10) return d;
+                var p = d.split('/');
+                return (p.length === 3) ? p[1] + '/' + p[2].slice(2) : d;
+            });
+
+            // --- 2. CONFIGURAÇÃO DO EIXO X ---
+            var eixoXConfig = {};
+            var xValues = [];
+
+            if (ehTempoReal) {
+                // [MODO TEMPO REAL - ESTRATÉGIA: UMA DATA POR ANO]
+                
+                // 1. Converter todas as datas para ISO (para o gráfico plotar a linha corretamente)
+                xValues = raw_labels.map(function(d) {
+                    if (!d || d.length < 10) return d;
+                    var p = d.split('/');
+                    return p[2] + '-' + p[1] + '-' + p[0];
+                });
+
+                // 2. Criar a lista de Ticks (Rótulos) filtrada
+                var tickValsFiltrados = [];
+                var tickTextFiltrados = [];
+                var anosRegistrados = {}; // Dicionário para controlar duplicatas de ano
+
+                xValues.forEach(function(isoDate, i) {
+                    var ano = isoDate.split('-')[0]; // Pega '2023', '2024'...
+
+                    // SE é a primeira vez que vemos este ano...
+                    if (!anosRegistrados[ano]) {
+                        // ...Adiciona na lista de rótulos
+                        tickValsFiltrados.push(isoDate);
+                        tickTextFiltrados.push(labels_formatadas[i]);
+                        
+                        // ...E marca o ano como registrado
+                        anosRegistrados[ano] = true;
+                    }
+                });
+
+                eixoXConfig = {
+                    type: 'date',
+                    
+                    // FORÇA O USO DA LISTA FILTRADA
+                    tickmode: 'array', 
+                    tickvals: tickValsFiltrados, 
+                    ticktext: tickTextFiltrados,
+                    
+                    tickangle: 90, 
+                    automargin: true,
+                    rangeslider: { visible: true, thickness: 0.05, bgcolor: '#f1f3f5' }
+                };
+
+            } else {
+                // [MODO CATEGORIA - PADRÃO ANTIGO]
+                xValues = labels_formatadas; 
+
+                eixoXConfig = {
+                    type: 'category',
+                    tickmode: 'linear',
+                    dtick: 1,
+                    tickangle: 90,
+                    range: [-0.5, xValues.length - 0.5],
+                    automargin: true,
+                    rangeslider: { visible: true, thickness: 0.05, bgcolor: '#f1f3f5' }
+                };
             }
-        );
 
-        var gd = document.getElementById('chart-{{ loop.index }}');
+            // --- 3. CONFIGURAÇÕES VISUAIS COMUNS ---
+            var maxValor = Math.max.apply(null, valores);
+            var minValor = Math.min.apply(null, valores);
+            var tetoGrafico = Math.max(maxValor * 1.2, 2.5);
+            var pisoGrafico = 0; 
+            var shapes = []; 
 
-        gd.on('touchstart', function (e) {
-            e.stopPropagation();
-        }, { passive: true });
+            var corPrincipal = '#0d6efd'; 
+            var corPonto = '#0d6efd';     
+            if (tipo === 'scatter') corPonto = '#003366'; 
 
-        gd.on('touchmove', function (e) {
-            e.stopPropagation();
-        }, { passive: true });
+            if (nomeExibicao.indexOf('Creatinina') !== -1) {
+                pisoGrafico = Math.max(0, minValor - 0.2); 
+                shapes = [
+                    { type: 'rect', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 0, y1: 1.3, fillcolor: 'rgba(25, 135, 84, 0.1)', line: { width: 0 }, layer: 'below' },
+                    { type: 'rect', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 1.3, y1: 2.0, fillcolor: 'rgba(255, 193, 7, 0.15)', line: { width: 0 }, layer: 'below' },
+                    { type: 'rect', xref: 'paper', x0: 0, x1: 1, yref: 'y', y0: 2.0, y1: tetoGrafico + 5, fillcolor: 'rgba(220, 53, 69, 0.08)', line: { width: 0 }, layer: 'below' }
+                ];
+            }
 
+            // --- 4. PLOTAGEM ---
+            var data = [];
+            var trace1 = { 
+                x: xValues, y: valores, type: tipo, mode: 'lines+markers', 
+                name: 'Valor Real', text: raw_labels, 
+                hovertemplate: '<b>Valor:</b> %{y}<br><b>Data:</b> %{text}<extra></extra>',
+                marker: { 
+                    color: corPonto, 
+                    size: (tipo === 'bar') ? null : 6, 
+                    symbol: 'circle', 
+                    line: { width: 1, color: '#ffffff' } 
+                }, 
+                line: { width: 2.5, color: corPrincipal },
+                connectgaps: true,
+                cliponaxis: false 
+            };
+            data.push(trace1);
+            
+            {% if 'valores_ma' in dados %}
+            data.push({
+                x: xValues, y: {{ dados['valores_ma'] | tojson }},
+                type: 'scatter', mode: 'lines', name: 'Média Móvel',
+                line: { color: '#ff6600', dash: 'dot', width: 2 }
+            });
+            {% endif %}
 
-        }) ();
+            var layout = { 
+                title: { text: nomeExibicao, font: { size: 16, family: 'Inter' } }, 
+                margin: { t: 50, b: 0, l: 30, r: 10 }, 
+                paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', 
+                autosize: true, dragmode: false, shapes: shapes,
+                yaxis: { range: [pisoGrafico, tetoGrafico], fixedrange: false },
+                xaxis: eixoXConfig,
+                showlegend: {% if 'valores_ma' in dados %}true{% else %}false{% endif %},
+                legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.2 }
+            };
+
+            Plotly.newPlot('chart-{{ loop.index }}', data, layout, { responsive: true, displayModeBar: false });
+
+            var gd = document.getElementById('chart-{{ loop.index }}');
+            gd.on('touchstart', function(e){ e.stopPropagation(); }, {passive:true});
+            gd.on('touchmove', function(e){ e.stopPropagation(); }, {passive:true});
+
+        })();
         {% endfor %}
-
+        
         var linkDestino = "";
         function verificarSenha(destino, event) {
             event.preventDefault(); linkDestino = "/" + destino;

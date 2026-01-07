@@ -99,13 +99,16 @@
     <div class="main-content">
         
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="fw-bold text-dark m-0">Sumário de Resultados</h3>
-            <div>
-                <button type="button" class="btn btn-outline-primary me-2" onclick="document.getElementById('file-input').click()">
-                    📂 Carregar PDF
-                </button>
-                </div>
-        </div>
+    <h3 class="fw-bold text-dark m-0">Sumário de Resultados</h3>
+    <div>
+        <button type="button" class="btn btn-primary me-2" onclick="adicionarLinhaVazia()">
+            + Adicionar Linha
+        </button>
+        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('file-input').click()">
+            📂 Carregar PDF
+        </button>
+    </div>
+</div>
 
         <div class="alert alert-info d-flex align-items-center" role="alert">
             <svg class="bi flex-shrink-0 me-2" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
@@ -134,6 +137,25 @@
                             <th style="width: 50px;">Ações</th> </tr>
                         </tr>
                     </thead>
+                    <tr id="linha-modelo" style="display: none;">
+    <td style="min-width: 110px;"><input type="text" class="form-control-plaintext-custom fw-bold" name="nova_data[]" placeholder="DD/MM/AAAA"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_creatinina[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom fw-bold text-primary" name="nova_erfg[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_ureia[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_relacao[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_triglicerideos[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_ldl[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_acido_urico[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_sodio[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_potassio[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_calcio[]" placeholder="-"></td>
+    <td><input type="text" class="form-control-plaintext-custom" name="nova_microalbuminuria[]" placeholder="-"></td>
+    <td class="text-center">
+        <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="this.closest('tr').remove()">❌</button>
+    </td>
+</tr>
+
+
                     <tbody>
                         {% for exam in exams_summary %}
                         <tr>
@@ -182,13 +204,27 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Auto-envio do upload ao selecionar arquivo
-        document.getElementById('file-input').addEventListener('change', function() {
-            if (this.files.length > 0) {
-                document.getElementById('upload-form').submit();
-            }
-        });
-    </script>
+<script>
+    // Função para clonar e adicionar nova linha
+    function adicionarLinhaVazia() {
+        const tabelaBody = document.querySelector("table tbody");
+        const modelo = document.getElementById("linha-modelo");
+        
+        // Clona a linha modelo
+        const novaLinha = modelo.cloneNode(true);
+        novaLinha.id = ""; // Remove o ID para não duplicar
+        novaLinha.style.display = ""; // Torna visível
+        
+        // Insere a nova linha ANTES da linha modelo (para ela ficar no final da lista visível)
+        tabelaBody.insertBefore(novaLinha, modelo);
+    }
+
+    // Auto-envio do upload ao selecionar arquivo
+    document.getElementById('file-input').addEventListener('change', function() {
+        if (this.files.length > 0) {
+            document.getElementById('upload-form').submit();
+        }
+    });
+</script>
 </body>
 </html>

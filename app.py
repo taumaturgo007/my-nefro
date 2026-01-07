@@ -546,6 +546,30 @@ def home():
                 'valores': valores
             }
 
+        # --- 4. Ordenar Exames e Calcular Média Móvel (Moving Average) ---
+        priority = ['Creatinina', 'Microalbuminúria']
+        ordered_exames = {}
+        
+        # Cálculo da Média Móvel para Creatinina (Janela de 3)
+        if 'Creatinina' in exames and len(exames['Creatinina']['valores']) >= 2:
+            vals = exames['Creatinina']['valores']
+            window = 3
+            # Calcula a média dos últimos 3 pontos para cada ponto do gráfico
+            ma = [round(sum(vals[max(0, i-window+1):i+1]) / len(vals[max(0, i-window+1):i+1]), 2) for i in range(len(vals))]
+            exames['Creatinina']['valores_ma'] = ma
+
+        # Prioriza Creatinina e Microalbuminúria no topo para ficarem lado a lado
+        for p in priority:
+            if p in exames:
+                ordered_exames[p] = exames[p]
+        
+        # Adiciona os outros exames logo abaixo
+        for k, v in exames.items():
+            if k not in ordered_exames:
+                ordered_exames[k] = v
+        
+        exames = ordered_exames
+
         # --- 2. Busca as MEDICAÇÕES no Banco (<<< MUDANÇA AQUI) ---
         # Antes estava fixo em texto, agora vem da tabela nova
         cursor.execute("SELECT id, nome, detalhes FROM medicacoes")
@@ -585,6 +609,29 @@ def home():
     # --- NOVO: BUSCA OS EVENTOS PARA EXIBIR NA TELA ---
         cursor.execute("SELECT id, data_evento, descricao FROM eventos ORDER BY data_evento DESC")
         lista_eventos = cursor.fetchall()
+
+# --- BLOCO NOVO: Cria o gráfico "Creatinina Tempo Real" ---
+    if 'Creatinina' in exames:
+        # 1. Cria uma cópia dos dados da Creatinina
+        dados_tempo_real = exames['Creatinina'].copy()
+        
+        # 2. Reorganiza o dicionário para inserir LOGO DEPOIS de Microalbuminúria
+        nova_ordem = {}
+        chaves = list(exames.keys())
+        
+        # Adiciona todos os exames na ordem original
+        for k in chaves:
+            nova_ordem[k] = exames[k]
+            # Se acabou de adicionar Microalbuminúria, insere o Tempo Real
+            if k == 'Microalbuminúria':
+                nova_ordem['Creatinina Tempo Real'] = dados_tempo_real
+        
+        # Se Microalbuminúria não existia, adiciona no final por segurança
+        if 'Creatinina Tempo Real' not in nova_ordem:
+            nova_ordem['Creatinina Tempo Real'] = dados_tempo_real
+            
+        exames = nova_ordem
+
 
     return render_template('home_plotly.html', 
                            exames=exames, # (supondo que a variável exames existe do código anterior)
@@ -728,29 +775,24 @@ def exams_summary():
     return render_template('exams_summary.html', 
                            exams_summary=summary_list, 
                            perfil=perfil_data)
-
 @app.route('/update_summary', methods=['POST'])
 def update_summary():
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
         
-        # 1. Identifica quais linhas (índices) vieram do formulário HTML
+        # --- 1. ATUALIZAÇÃO DAS LINHAS EXISTENTES ---
+        # Identifica quais linhas antigas foram editadas
         indices = set()
         for key in request.form:
             if key.startswith('data_original_'):
-                # Pega o número depois do último sublinhado (ex: data_original_1 -> 1)
                 indices.add(key.split('_')[-1])
         
-        # 2. Processa cada linha editada
         for idx in indices:
             original_date = request.form.get(f'data_original_{idx}')
             new_date = request.form.get(f'data_{idx}')
-            
-            # Se a data mudou, usamos a nova. Se não, mantemos a original.
             target_date = new_date if new_date else original_date
             
-            # Mapeamento: (Nome da Coluna no Banco) : (Nome do Input no HTML)
-            # Esses nomes devem bater com os "name=" do seu arquivo exams_summary.html
+            # Mapeamento dos campos de edição existentes
             campos = {
                 'Creatinina': f'creatinina_{idx}',
                 'eRFG': f'erfg_{idx}',
@@ -765,29 +807,53 @@ def update_summary():
                 'Microalbuminúria': f'microalbuminuria_{idx}'
             }
 
-            # Se a data mudou, removemos os registros da data antiga para não duplicar
+            # Se a data mudou, remove os registros da data antiga para evitar duplicata
             if original_date and original_date != target_date:
                  cursor.execute("DELETE FROM exames WHERE data_coleta = ?", (original_date,))
 
-            # Atualiza ou Insere os valores
+            # Atualiza ou Insere os valores editados
             for nome_db, input_html in campos.items():
                 valor = request.form.get(input_html)
-                
-                # Só salvamos se o valor existir e não for um traço
                 if valor and valor.strip() and valor.strip() != '-':
-                    # Tenta atualizar primeiro
-                    cursor.execute('''
-                        UPDATE exames SET valor = ? 
-                        WHERE nome = ? AND data_coleta = ?
-                    ''', (valor, nome_db, target_date))
-                    
-                    # Se não atualizou nada (porque não existia), insere novo
+                    cursor.execute('UPDATE exames SET valor = ? WHERE nome = ? AND data_coleta = ?', (valor, nome_db, target_date))
                     if cursor.rowcount == 0:
-                        cursor.execute('''
-                            INSERT INTO exames (nome, valor, data_coleta)
-                            VALUES (?, ?, ?)
-                        ''', (nome_db, valor, target_date))
+                        cursor.execute('INSERT INTO exames (nome, valor, data_coleta) VALUES (?, ?, ?)', (nome_db, valor, target_date))
 
+        # --- 2. INSERÇÃO DE NOVAS LINHAS (MANUAL) ---
+        # Pega as listas de todos os novos campos adicionados
+        novas_datas = request.form.getlist('nova_data[]')
+        
+        # Mapeamento: (Nome no Banco) : (Nome do Input "nova_...")
+        mapa_novos = {
+            'Creatinina': 'nova_creatinina[]',
+            'eRFG': 'nova_erfg[]',
+            'Ureia': 'nova_ureia[]',
+            'Relação Proteína/Creatinina': 'nova_relacao[]',
+            'Triglicerídeos': 'nova_triglicerideos[]',
+            'Colesterol LDL': 'nova_ldl[]',
+            'Ácido Úrico': 'nova_acido_urico[]',
+            'Sódio': 'nova_sodio[]',
+            'Potássio': 'nova_potassio[]',
+            'Cálcio': 'nova_calcio[]',
+            'Microalbuminúria': 'nova_microalbuminuria[]'
+        }
+        
+        # Itera sobre cada nova linha adicionada
+        for i, data_coleta in enumerate(novas_datas):
+            # Se a data estiver vazia, ignoramos essa linha
+            if not data_coleta or not data_coleta.strip(): continue
+            
+            for nome_db, nome_input in mapa_novos.items():
+                # Pega a lista de valores daquele exame específico
+                lista_valores = request.form.getlist(nome_input)
+                
+                # Garante que o índice existe e pega o valor
+                if i < len(lista_valores):
+                    valor = lista_valores[i]
+                    # Se tiver valor preenchido, insere no banco
+                    if valor and valor.strip() and valor.strip() != '-':
+                         cursor.execute('INSERT INTO exames (nome, valor, data_coleta) VALUES (?, ?, ?)', (nome_db, valor, data_coleta))
+        
         conn.commit()
 
     return redirect(url_for('exams_summary'))
